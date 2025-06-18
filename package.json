@@ -40,7 +40,9 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.0",
+		"@builder.io/qwik": "^1.14.1",
 		"@types/node": "^22.15.17",
+		"@vitest/browser": "^3.2.4",
 		"bumpp": "^10.1.0",
 		"tsdown": "^0.11.9",
 		"tsx": "^4.19.4",
