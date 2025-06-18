@@ -1,35 +1,76 @@
-# tsdown-starter
+# Vitest Browser Qwik
 
-A starter for creating a tsdown package.
+A modern testing setup demonstrating browser-based testing for Qwik components using Vitest. This project showcases how to effectively test Qwik components with real browser interactions, making it perfect for testing complex UI behaviors.
 
-## Development
-
-- Install dependencies:
+## Getting Started
 
 ```bash
-pnpm install
+pnpm add vitest-browser-qwik
 ```
 
-- Run the unit tests:
+### Example
 
-```bash
-pnpm test
+```tsx
+import { render } from 'vitest-browser-qwik'
+import { expect, test } from 'vitest'
+
+test('renders counter', async () => {
+  const screen = render(<Counter initialCount={1} />);
+  await expect.element(screen.getByText('Count is 1')).toBeVisible();
+  await screen.getByRole('button', { name: 'Increment' }).click();
+  await expect.element(screen.getByText('Count is 2')).toBeVisible();
+});
 ```
 
-- Build the library:
+You can also fully rely on the `page` object, this library injects `.render` on the `page`
+object.
 
-```bash
-pnpm build
+```tsx
+import { expect, test } from 'vitest'
+
+test('renders counter', async () => {
+  const screen = page.render(<Counter initialCount={1} />);
+  await expect.element(screen.getByText('Count is 1')).toBeVisible();
+  await screen.getByRole('button', { name: 'Increment' }).click();
+  await expect.element(screen.getByText('Count is 2')).toBeVisible();
+});
 ```
 
-## Sponsors
+## Render Options
 
-<p align="center">
-  <a href="https://cdn.jsdelivr.net/gh/sxzz/sponsors/sponsors.svg">
-    <img src='https://cdn.jsdelivr.net/gh/sxzz/sponsors/sponsors.svg'/>
-  </a>
-</p>
+The `render` function accepts an options object as its second parameter with the following properties:
+
+```ts
+interface ComponentRenderOptions {
+  // Optional HTMLElement where the component will be rendered
+  container?: HTMLElement;
+  // Optional HTMLElement that serves as the base element (defaults to document.body)
+  baseElement?: HTMLElement;
+  // Optional wrapper component that can wrap the rendered component
+  wrapper?: ({ children }: { children: JSX.Element }) => JSX.Element;
+}
+```
+
+Example with options:
+
+```tsx
+import { render } from 'vitest-browser-qwik'
+
+test('renders with custom container', () => {
+  const screen = render(<MyComponent />, { 
+    wrapper: ({ children }) => (
+      <Context.Provider value={{ foo: 'bar' }}>
+        {children}
+      </Context.Provider>
+    )
+  });
+});
+```
+
+## Contributing
+
+Feel free to open issues and pull requests. All contributions are welcome!
 
 ## License
 
-[MIT](./LICENSE) License © 2025 [三咲智子 Kevin Deng](https://github.com/sxzz)
+MIT 
