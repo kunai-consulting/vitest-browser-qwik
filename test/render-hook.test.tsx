@@ -4,15 +4,13 @@ import { renderHook } from "../src/index";
 import { useCounter } from "./fixtures/useCounter";
 
 test("should increment counter", () => {
-	const { result, act } = renderHook(() =>
+	const { result } = renderHook(() =>
 		useCounter({ countSignal: useSignal(0) }),
 	);
 
-	act(() => {
-		result.current.increment();
-	});
+	result.increment();
 
-	expect(result.current.count).toBe(1);
+	expect(result.count.value).toBe(1);
 });
 
 // test('allows rerendering', () => {
