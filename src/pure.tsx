@@ -24,6 +24,9 @@ export interface RenderOptions {
 	baseElement?: HTMLElement;
 }
 
+// Track mounted components for cleanup
+const mountedContainers = new Set<HTMLElement>();
+
 export function render(
 	ui: JSXOutput,
 	{ container, baseElement }: RenderOptions = {},
@@ -38,16 +41,22 @@ export function render(
 
 	qwikRender(container, ui);
 
+	// Track this container for cleanup
+	mountedContainers.add(container);
+
+	const unmount = () => {
+		container.innerHTML = "";
+		mountedContainers.delete(container);
+		if (container.parentNode === document.body) {
+			document.body.removeChild(container);
+		}
+	};
+
 	return {
 		container,
 		baseElement,
 		debug: (el, maxLength, options) => debug(el, maxLength, options),
-		unmount: () => {
-			container.innerHTML = "";
-			if (container.parentNode === document.body) {
-				document.body.removeChild(container);
-			}
-		},
+		unmount,
 		asFragment: () => {
 			return document
 				.createRange()
@@ -73,4 +82,15 @@ export function renderHook<Result>(
 			// Qwik handles cleanup automatically
 		},
 	};
+}
+
+// Cleanup function to be called after each test
+export function cleanup(): void {
+	mountedContainers.forEach((container) => {
+		container.innerHTML = "";
+		if (container.parentNode === document.body) {
+			document.body.removeChild(container);
+		}
+	});
+	mountedContainers.clear();
 }

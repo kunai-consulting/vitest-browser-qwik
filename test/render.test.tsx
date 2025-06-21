@@ -11,13 +11,13 @@ test("renders simple component", async () => {
 	expect(screen.container).toMatchSnapshot();
 });
 
-// test("renders counter", async () => {
-// 	const screen = render(<Counter initialCount={1} />);
+test("renders counter", async () => {
+	const screen = render(<Counter initialCount={1} />);
 
-// 	// await expect.element(screen.getByText("Count is 1")).toBeVisible();
-// 	// await screen.getByRole("button", { name: "Increment" }).click();
-// 	// await expect.element(screen.getByText("Count is 2")).toBeVisible();
-// });
+	await expect.element(screen.getByText("Count is 1")).toBeVisible();
+	await screen.getByRole("button", { name: "Increment" }).click();
+	await expect.element(screen.getByText("Count is 2")).toBeVisible();
+});
 
 // test("should fire the onPress/onClick handler", async () => {
 // 	const handler = vi.fn();
