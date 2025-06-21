@@ -1,8 +1,9 @@
 import { qwikVite } from "@builder.io/qwik/optimizer";
 import { defineConfig } from "vitest/config";
+import SSRCommand from "./src/ssr";
 
 export default defineConfig({
-	plugins: [qwikVite()],
+	plugins: [qwikVite(), SSRCommand()],
 	test: {
 		browser: {
 			enabled: true,
