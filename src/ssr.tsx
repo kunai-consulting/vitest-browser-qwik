@@ -4,6 +4,14 @@ import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 const renderSSR: BrowserCommand<[component: JSXOutput]> = async (component) => {
+	// Set up environment variables that Qwik SSR expects
+	if (!process.env.BASE_URL) {
+		process.env.BASE_URL = "/";
+	}
+	if (!process.env.VITE_BASE_URL) {
+		process.env.VITE_BASE_URL = "/";
+	}
+
 	let html = "";
 
 	const stream = {
@@ -15,6 +23,7 @@ const renderSSR: BrowserCommand<[component: JSXOutput]> = async (component) => {
 	await renderToStream(component, {
 		containerTagName: "div",
 		stream,
+		base: "/build/",
 	});
 
 	return {
