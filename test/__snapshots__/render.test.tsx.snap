@@ -1,9 +1,15 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`renders simple component 1`] = `
-<div>
+<div
+  q:container="resumed"
+  q:render="dom"
+  q:version="1.14.1"
+>
+  <!--qv -->
   <div>
     Hello World
   </div>
+  <!--/qv-->
 </div>
 `;
