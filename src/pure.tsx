@@ -1,5 +1,6 @@
 import type { JSXOutput } from "@builder.io/qwik";
 import { render as qwikRender } from "@builder.io/qwik";
+import { getQwikLoaderScript } from "@builder.io/qwik/server";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
 	debug,
@@ -26,11 +27,23 @@ export interface RenderOptions {
 
 // Track mounted components for cleanup
 const mountedContainers = new Set<HTMLElement>();
+let qwikLoaderInjected = false;
+
+function ensureQwikLoader() {
+	if (qwikLoaderInjected) return;
+
+	const script = document.createElement("script");
+	script.innerHTML = getQwikLoaderScript();
+	document.head.appendChild(script);
+	qwikLoaderInjected = true;
+}
 
 export function render(
 	ui: JSXOutput,
 	{ container, baseElement }: RenderOptions = {},
 ): RenderResult {
+	ensureQwikLoader();
+
 	if (!baseElement) {
 		baseElement = document.body;
 	}
