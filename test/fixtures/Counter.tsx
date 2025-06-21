@@ -6,10 +6,7 @@ export const Counter = component$<{ initialCount: number }>(
 
 		return (
 			<>
-				<div>
-					Count is
-					{count.value}
-				</div>
+				<div>Count is {count.value}</div>
 				<button type="button" onClick$={() => count.value++}>
 					Increment
 				</button>
