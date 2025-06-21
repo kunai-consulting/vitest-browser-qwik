@@ -1,4 +1,4 @@
-import type { Component, JSXNode, RenderOptions } from "@builder.io/qwik";
+import type { Component, JSXOutput, RenderOptions } from "@builder.io/qwik";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
 	debug,
@@ -18,7 +18,7 @@ export type DebugFn = (
 	options?: PrettyDOMOptions,
 ) => void;
 
-export type RenderResult =  {
+export type RenderResult = {
 	asFragment: () => DocumentFragment;
 	container: HTMLElement;
 	baseElement: HTMLElement;
@@ -30,24 +30,6 @@ export type ComponentRef = {
 	container: HTMLElement;
 	componentCleanup: () => void;
 };
-
-// we call act only when rendering to flush any possible effects
-// usually the async nature of Vitest browser mode ensures consistency,
-// but rendering is sync and controlled by React directly
-// function act(cb: () => unknown) {
-// 	// @ts-expect-error unstable_act is not typed, but exported
-// 	const _act = React.act || React.unstable_act;
-// 	if (typeof _act !== "function") {
-// 		cb();
-// 	} else {
-// 		(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-// 		try {
-// 			_act(cb);
-// 		} finally {
-// 			(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false;
-// 		}
-// 	}
-// }
 
 // export interface RenderResult extends LocatorSelectors {
 // 	container: HTMLElement;
@@ -65,7 +47,7 @@ export type ComponentRef = {
 export interface ComponentRenderOptions {
 	container?: HTMLElement;
 	baseElement?: HTMLElement;
-	wrapper?: JSXNode;
+	wrapper?: JSXOutput;
 }
 
 // Ideally we'd just use a WeakMap where containers are keys and roots are values.
@@ -77,7 +59,7 @@ const mountedRootEntries: {
 }[] = [];
 
 export function render(
-	ui: JSXNode,
+	ui: JSXOutput,
 	{
 		container,
 		baseElement,
@@ -115,26 +97,12 @@ export function render(
 		});
 	}
 
-	act(() => {
-    // I think strict mode is a react thing?
-		root!.render(strictModeIfNeeded(wrapUiIfNeeded(ui, WrapperComponent)));
-	});
-
 	return {
 		container,
 		baseElement,
 		debug: (el, maxLength, options) => debug(el, maxLength, options),
 		unmount: () => {
-			act(() => {
-				root.unmount();
-			});
-		},
-		rerender: (newUi: React.ReactNode) => {
-			act(() => {
-				root.render(
-					strictModeIfNeeded(wrapUiIfNeeded(newUi, WrapperComponent)),
-				);
-			});
+			root.unmount();
 		},
 		asFragment: () => {
 			return document
@@ -155,10 +123,6 @@ export interface RenderHookOptions<Props> extends ComponentRenderOptions {
 
 export interface RenderHookResult<Result, Props> {
 	/**
-	 * Triggers a re-render. The props will be passed to your renderHook callback.
-	 */
-	rerender: (props?: Props) => void;
-	/**
 	 * This is a stable reference to the latest value returned by your renderHook
 	 * callback
 	 */
@@ -173,10 +137,6 @@ export interface RenderHookResult<Result, Props> {
 	 * any cleanup your useEffects have.
 	 */
 	unmount: () => void;
-	/**
-	 * A test helper to apply pending React updates before making assertions.
-	 */
-	act: (callback: () => unknown) => void;
 }
 
 export function renderHook<Props, Result>(
@@ -185,41 +145,12 @@ export function renderHook<Props, Result>(
 ): RenderHookResult<Result, Props> {
 	const { initialProps, ...renderOptions } = options;
 
-	const result = React.createRef<Result>() as unknown as { current: Result };
-
-	function TestComponent({
-		renderCallbackProps,
-	}: {
-		renderCallbackProps?: Props;
-	}) {
-		const pendingResult = renderCallback(renderCallbackProps);
-
-		React.useEffect(() => {
-			result.current = pendingResult;
-		});
-
-		return null;
-	}
-
-	const { rerender: baseRerender, unmount } = render(
-    <TestComponent renderCallbackProps={initialProps} />,
-    renderOptions,
-  )
-
-	function rerender(rerenderCallbackProps?: Props) {
-		return baseRerender(
-      <TestComponent renderCallbackProps={rerenderCallbackProps} />,
-    )
-	}
-
-	return { result, rerender, unmount, act };
+	return { result, unmount };
 }
 
 export function cleanup(): void {
 	mountedRootEntries.forEach(({ root, container }) => {
-		act(() => {
-			root.unmount();
-		});
+		root.unmount();
 		if (container.parentNode === document.body) {
 			document.body.removeChild(container);
 		}
@@ -229,16 +160,16 @@ export function cleanup(): void {
 }
 
 interface QwikRoot {
-	render: (element: JSXNode) => void;
+	render: (element: JSXOutput) => void;
 	unmount: () => void;
 }
 
 function createConcurrentRoot(container: HTMLElement): QwikRoot {
-  // I think this is the render function for Qwik version?
+	// I think this is the render function for Qwik version?
 	const root = ReactDOMClient.createRoot(container);
 
 	return {
-		render(element: JSXNode) {
+		render(element: JSXOutput) {
 			root.render(element);
 		},
 		unmount() {
