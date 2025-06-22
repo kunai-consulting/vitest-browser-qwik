@@ -34,7 +34,7 @@ export interface SSRRenderOptions {
 const mountedContainers = new Set<HTMLElement>();
 let qwikLoaderInjected = false;
 
-function ensureQwikLoader() {
+function csrQwikLoader() {
 	if (qwikLoaderInjected) return;
 
 	const script = document.createElement("script");
@@ -47,7 +47,7 @@ export function render(
 	ui: JSXOutput,
 	{ container, baseElement }: RenderOptions = {},
 ): RenderResult {
-	ensureQwikLoader();
+	csrQwikLoader();
 
 	if (!baseElement) {
 		baseElement = document.body;
@@ -88,9 +88,6 @@ export function renderSSRHTML(
 	html: string,
 	{ container, baseElement }: SSRRenderOptions = {},
 ): RenderResult {
-	// Ensure Qwik loader is available for SSR hydration
-	ensureQwikLoader();
-
 	if (!baseElement) {
 		baseElement = document.body;
 	}
