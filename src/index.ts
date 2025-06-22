@@ -21,7 +21,7 @@ declare module "@vitest/browser/context" {
 	}
 
 	interface BrowserCommands {
-		renderSSR: (component: JSXOutput) => Promise<{
+		renderOnServer: (component: JSXOutput) => Promise<{
 			html: string;
 		}>;
 	}
