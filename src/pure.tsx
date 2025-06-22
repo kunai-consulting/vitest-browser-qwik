@@ -43,96 +43,76 @@ function csrQwikLoader() {
 	qwikLoaderInjected = true;
 }
 
+function createRenderResult(
+	container: HTMLElement,
+	baseElement: HTMLElement,
+): RenderResult {
+	mountedContainers.add(container);
+
+	const unmount = () => {
+		container.innerHTML = "";
+		mountedContainers.delete(container);
+		if (container.parentNode === document.body) {
+			document.body.removeChild(container);
+		}
+	};
+
+	return {
+		container,
+		baseElement,
+		debug: (el, maxLength, options) => debug(el, maxLength, options),
+		unmount,
+		asFragment: () => {
+			return document
+				.createRange()
+				.createContextualFragment(container.innerHTML);
+		},
+		...getElementLocatorSelectors(baseElement),
+	};
+}
+
+// Shared helper for container setup
+function setupContainer(
+	baseElement?: HTMLElement,
+	container?: HTMLElement,
+): { container: HTMLElement; baseElement: HTMLElement } {
+	if (!baseElement) {
+		baseElement = document.body;
+	}
+
+	if (!container) {
+		container = baseElement.appendChild(document.createElement("div"));
+	}
+
+	return { container, baseElement };
+}
+
 export function render(
 	ui: JSXOutput,
 	{ container, baseElement }: RenderOptions = {},
 ): RenderResult {
 	csrQwikLoader();
 
-	if (!baseElement) {
-		baseElement = document.body;
-	}
+	const setup = setupContainer(baseElement, container);
+	qwikRender(setup.container, ui);
 
-	if (!container) {
-		container = baseElement.appendChild(document.createElement("div"));
-	}
-
-	qwikRender(container, ui);
-
-	// Track this container for cleanup
-	mountedContainers.add(container);
-
-	const unmount = () => {
-		container.innerHTML = "";
-		mountedContainers.delete(container);
-		if (container.parentNode === document.body) {
-			document.body.removeChild(container);
-		}
-	};
-
-	return {
-		container,
-		baseElement,
-		debug: (el, maxLength, options) => debug(el, maxLength, options),
-		unmount,
-		asFragment: () => {
-			return document
-				.createRange()
-				.createContextualFragment(container.innerHTML);
-		},
-		...getElementLocatorSelectors(baseElement),
-	};
+	return createRenderResult(setup.container, setup.baseElement);
 }
 
 export function renderSSRHTML(
 	html: string,
 	{ container, baseElement }: SSRRenderOptions = {},
 ): RenderResult {
-	if (!baseElement) {
-		baseElement = document.body;
-	}
+	const setup = setupContainer(baseElement, container);
 
-	if (!container) {
-		container = baseElement.appendChild(document.createElement("div"));
-	}
+	setup.container.innerHTML = html;
 
-	// Inject the server-rendered HTML directly into the container
-	container.innerHTML = html;
-
-	// Track this container for cleanup
-	mountedContainers.add(container);
-
-	const unmount = () => {
-		container.innerHTML = "";
-		mountedContainers.delete(container);
-		if (container.parentNode === document.body) {
-			document.body.removeChild(container);
-		}
-	};
-
-	return {
-		container,
-		baseElement,
-		debug: (el, maxLength, options) => debug(el, maxLength, options),
-		unmount,
-		asFragment: () => {
-			return document
-				.createRange()
-				.createContextualFragment(container.innerHTML);
-		},
-		...getElementLocatorSelectors(baseElement),
-	};
+	return createRenderResult(setup.container, setup.baseElement);
 }
 
-// Convenience function that combines SSR rendering with DOM injection
-export async function renderSSR(
-	component: JSXOutput,
-	options: SSRRenderOptions = {},
-): Promise<RenderResult> {
-	// Import the renderSSR function from the index (this will be transformed by the plugin)
+export async function renderSSR(component: JSXOutput): Promise<RenderResult> {
 	const { renderSSR: serverRenderSSR } = await import("./index");
 
-	// The plugin transforms this to return a RenderResult directly
 	return await serverRenderSSR(component);
 }
 
