@@ -25,6 +25,11 @@ export interface RenderOptions {
 	baseElement?: HTMLElement;
 }
 
+export interface SSRRenderOptions {
+	container?: HTMLElement;
+	baseElement?: HTMLElement;
+}
+
 // Track mounted components for cleanup
 const mountedContainers = new Set<HTMLElement>();
 let qwikLoaderInjected = false;
@@ -77,6 +82,64 @@ export function render(
 		},
 		...getElementLocatorSelectors(baseElement),
 	};
+}
+
+export function renderSSRHTML(
+	html: string,
+	{ container, baseElement }: SSRRenderOptions = {},
+): RenderResult {
+	// Ensure Qwik loader is available for SSR hydration
+	ensureQwikLoader();
+
+	if (!baseElement) {
+		baseElement = document.body;
+	}
+
+	if (!container) {
+		container = baseElement.appendChild(document.createElement("div"));
+	}
+
+	// Inject the server-rendered HTML directly into the container
+	container.innerHTML = html;
+
+	// Track this container for cleanup
+	mountedContainers.add(container);
+
+	const unmount = () => {
+		container.innerHTML = "";
+		mountedContainers.delete(container);
+		if (container.parentNode === document.body) {
+			document.body.removeChild(container);
+		}
+	};
+
+	return {
+		container,
+		baseElement,
+		debug: (el, maxLength, options) => debug(el, maxLength, options),
+		unmount,
+		asFragment: () => {
+			return document
+				.createRange()
+				.createContextualFragment(container.innerHTML);
+		},
+		...getElementLocatorSelectors(baseElement),
+	};
+}
+
+// Convenience function that combines SSR rendering with DOM injection
+export async function renderSSR(
+	component: JSXOutput,
+	options: SSRRenderOptions = {},
+): Promise<RenderResult> {
+	// Import the renderSSR function from the index (this will be transformed by the plugin)
+	const { renderSSR: serverRenderSSR } = await import("./index");
+
+	// Get the server-rendered HTML
+	const { html } = await serverRenderSSR(component);
+
+	// Inject it into the DOM for testing
+	return renderSSRHTML(html, options);
 }
 
 export interface RenderHookResult<Result> {

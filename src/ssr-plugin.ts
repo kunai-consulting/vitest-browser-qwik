@@ -310,7 +310,10 @@ export function createSSRTransformPlugin(): Plugin {
 											propsStr = `, { ${propsEntries.join(", ")} }`;
 										}
 
-										const replacement = `commands.renderSSR("${componentPath}", "${componentName}"${propsStr})`;
+										const replacement = `(async () => {
+											const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
+											return renderSSRHTML(html);
+										})()`;
 
 										const spanNode = node as Node & Span;
 										s.overwrite(spanNode.start, spanNode.end, replacement);
@@ -348,7 +351,7 @@ export function createSSRTransformPlugin(): Plugin {
 					if (lastImportEnd > 0) {
 						s.appendLeft(
 							lastImportEnd,
-							'\nimport { commands } from "@vitest/browser/context";',
+							'\nimport { commands } from "@vitest/browser/context";\nimport { renderSSRHTML } from "../src";',
 						);
 					}
 				}

@@ -46,6 +46,7 @@ const renderSSRCommand: ComponentFormat = async (
 		const result = await renderToString(jsx, {
 			containerTagName: "div",
 			base: "/build/",
+			qwikLoader: { include: "always" },
 		});
 
 		return { html: result.html };
