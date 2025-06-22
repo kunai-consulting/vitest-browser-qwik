@@ -1,10 +1,7 @@
-import type { JSXOutput } from "@builder.io/qwik";
 import { expect, test } from "vitest";
+import { renderSSR } from "../src";
 import { Counter } from "./fixtures/Counter";
 import { HelloWorld } from "./fixtures/HelloWorld";
-
-// renderSSR function will be transformed by the plugin
-declare function renderSSR(element: JSXOutput): Promise<{ html: string }>;
 
 test("SSR renders Counter correctly", async () => {
 	const { html } = await renderSSR(<Counter initialCount={5} />);
