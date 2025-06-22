@@ -12,7 +12,7 @@ export {
 	cleanup,
 	render,
 	renderHook,
-	renderServerHTML as renderSSRHTML,
+	renderServerHTML,
 } from "./pure";
 
 page.extend({

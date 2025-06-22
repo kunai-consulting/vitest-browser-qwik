@@ -312,7 +312,7 @@ export function createSSRTransformPlugin(): Plugin {
 
 										const replacement = `(async () => {
 											const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
-											return renderSSRHTML(html);
+											return renderServerHTML(html);
 										})()`;
 
 										const spanNode = node as Node & Span;
@@ -351,7 +351,7 @@ export function createSSRTransformPlugin(): Plugin {
 					if (lastImportEnd > 0) {
 						s.appendLeft(
 							lastImportEnd,
-							'\nimport { commands } from "@vitest/browser/context";\nimport { renderSSRHTML } from "../src";',
+							'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "../src";',
 						);
 					}
 				}
