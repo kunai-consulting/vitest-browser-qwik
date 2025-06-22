@@ -549,7 +549,7 @@ describe("SSR Transform Plugin", () => {
 					'"conditional": base > 5 ? "high" : "low"',
 				);
 				expect(result.code).toContain('"member": obj.property');
-				expect(result.code).toContain('"template": `value: ${base}`');
+				expect(result.code).toContain('"template": `value: $' + "{base}`");
 			}
 		});
 

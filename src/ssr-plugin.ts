@@ -18,7 +18,7 @@ import type { Plugin } from "vitest/config";
 // Helper to safely traverse AST children
 function traverseChildren(
 	node: Node,
-	callback: (child: Node) => boolean | void,
+	callback: (child: Node) => boolean | undefined,
 ): boolean {
 	for (const key in node) {
 		const child = (node as unknown as Record<string, unknown>)[key];
@@ -226,7 +226,7 @@ export function createSSRTransformPlugin(): Plugin {
 				const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 				let hasExistingCommandsImport = false;
 
-				function walkForTransformation(node: Node): void {
+				function walkForTransformation(node: Node): undefined {
 					if (!node || typeof node !== "object") return;
 
 					// Track component imports
@@ -322,6 +322,7 @@ export function createSSRTransformPlugin(): Plugin {
 
 					// Recursively walk children
 					traverseChildren(node, walkForTransformation);
+					return;
 				}
 
 				walkForTransformation(ast as unknown as Node);
@@ -330,7 +331,7 @@ export function createSSRTransformPlugin(): Plugin {
 				if (!hasExistingCommandsImport && s.hasChanged()) {
 					let lastImportEnd = 0;
 
-					function findLastImport(node: Node): void {
+					function findLastImport(node: Node): undefined {
 						if (!node || typeof node !== "object") return;
 
 						if (node.type === "ImportDeclaration") {
@@ -339,6 +340,7 @@ export function createSSRTransformPlugin(): Plugin {
 						}
 
 						traverseChildren(node, findLastImport);
+						return undefined;
 					}
 
 					findLastImport(ast as unknown as Node);
