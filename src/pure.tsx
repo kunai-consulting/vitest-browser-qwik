@@ -135,11 +135,8 @@ export async function renderSSR(
 	// Import the renderSSR function from the index (this will be transformed by the plugin)
 	const { renderSSR: serverRenderSSR } = await import("./index");
 
-	// Get the server-rendered HTML
-	const { html } = await serverRenderSSR(component);
-
-	// Inject it into the DOM for testing
-	return renderSSRHTML(html, options);
+	// The plugin transforms this to return a RenderResult directly
+	return await serverRenderSSR(component);
 }
 
 export interface RenderHookResult<Result> {
