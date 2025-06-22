@@ -1,25 +1,12 @@
-import { commands } from "@vitest/browser/context";
 import { expect, test } from "vitest";
+import { Counter } from "./fixtures/Counter";
+import { HelloWorld } from "./fixtures/HelloWorld";
 
-// Extend the commands interface for TypeScript
-declare module "@vitest/browser/context" {
-	interface BrowserCommands {
-		renderSSR: (
-			componentPath: string,
-			componentName: string,
-			props?: Record<string, any>,
-		) => Promise<{
-			html: string;
-		}>;
-	}
-}
+// renderSSR function will be transformed by the plugin
+declare function renderSSR(element: any): Promise<{ html: string }>;
 
 test("SSR renders Counter correctly", async () => {
-	const { html } = await commands.renderSSR(
-		"./test/fixtures/Counter.tsx",
-		"Counter",
-		{ initialCount: 5 },
-	);
+	const { html } = await renderSSR(<Counter initialCount={5} />);
 
 	console.log(html);
 
@@ -30,10 +17,7 @@ test("SSR renders Counter correctly", async () => {
 });
 
 test("SSR rendering with HelloWorld", async () => {
-	const result = await commands.renderSSR(
-		"./test/fixtures/HelloWorld.tsx",
-		"HelloWorld",
-	);
+	const result = await renderSSR(<HelloWorld />);
 
 	expect(result.html).toContain("Hello World");
 	expect(result.html).toContain("<div");

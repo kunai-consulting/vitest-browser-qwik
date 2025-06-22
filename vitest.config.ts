@@ -4,6 +4,7 @@ import { renderToString } from "@builder.io/qwik/server";
 import { register } from "tsx/esm/api";
 import { defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
+import { createSSRTransformPlugin } from "./src/ssr-plugin";
 
 // Register tsx to handle TypeScript/TSX files
 const tsxLoader = register();
@@ -56,7 +57,7 @@ const renderSSRCommand: BrowserCommand<
 };
 
 export default defineConfig({
-	plugins: [qwikVite()],
+	plugins: [createSSRTransformPlugin(), qwikVite()],
 	test: {
 		browser: {
 			enabled: true,
