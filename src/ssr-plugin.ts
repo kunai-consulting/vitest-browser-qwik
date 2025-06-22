@@ -9,80 +9,131 @@ async function hasRenderSSRCall(
 	try {
 		const { parseSync } = await import("oxc-parser");
 		const ast = parseSync(filename, code);
+		const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 
-		// Track all renderSSR-related identifiers and their bindings
-		const renderSSRIdentifiers = new Set<string>();
-		renderSSRIdentifiers.add("renderSSR"); // Default name
-
-		function walk(node: any): boolean {
+		function walkForDetection(node: any): boolean {
 			if (!node || typeof node !== "object") return false;
 
-			// Check for renderSSR imports with possible aliases
-			if (node.type === "ImportDeclaration" && node.source?.value) {
-				if (node.specifiers) {
-					for (const spec of node.specifiers) {
-						if (spec.type === "ImportSpecifier") {
-							// Check if importing renderSSR (could be aliased)
-							if (spec.imported?.name === "renderSSR") {
-								renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
-							}
-						}
-						// Handle default imports that might be renderSSR
-						if (spec.type === "ImportDefaultSpecifier") {
-							// This is a heuristic - could be improved with more context
-							if (
-								spec.local?.name &&
-								spec.local.name.toLowerCase().includes("renderssr")
-							) {
-								renderSSRIdentifiers.add(spec.local.name);
-							}
-						}
+			// Track renderSSR imports and aliases
+			if (
+				node.type === "ImportDeclaration" &&
+				node.source?.value &&
+				node.specifiers
+			) {
+				for (const spec of node.specifiers) {
+					if (
+						spec.type === "ImportSpecifier" &&
+						spec.imported?.name === "renderSSR"
+					) {
+						renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
+					}
+					if (
+						spec.type === "ImportDefaultSpecifier" &&
+						spec.local?.name?.toLowerCase().includes("renderssr")
+					) {
+						renderSSRIdentifiers.add(spec.local.name);
 					}
 				}
 			}
 
-			// Check for variable declarations that might alias renderSSR
-			if (node.type === "VariableDeclarator" && node.id?.name && node.init) {
-				if (
-					node.init.type === "Identifier" &&
-					renderSSRIdentifiers.has(node.init.name)
-				) {
-					renderSSRIdentifiers.add(node.id.name);
-				}
+			// Track variable aliases
+			if (
+				node.type === "VariableDeclarator" &&
+				node.id?.name &&
+				node.init?.type === "Identifier" &&
+				renderSSRIdentifiers.has(node.init.name)
+			) {
+				renderSSRIdentifiers.add(node.id.name);
 			}
 
-			// Check for renderSSR function calls
+			// Check for renderSSR calls
 			if (
 				node.type === "CallExpression" &&
-				node.callee?.type === "Identifier"
+				node.callee?.type === "Identifier" &&
+				renderSSRIdentifiers.has(node.callee.name)
 			) {
-				if (renderSSRIdentifiers.has(node.callee.name)) {
-					return true; // Found a renderSSR call
-				}
+				return true;
 			}
 
-			// Recursively walk child nodes
+			// Recursively check children
 			for (const key in node) {
 				const child = node[key];
 				if (Array.isArray(child)) {
-					if (child.some(walk)) return true;
+					if (child.some(walkForDetection)) return true;
 				} else if (child && typeof child === "object") {
-					if (walk(child)) return true;
+					if (walkForDetection(child)) return true;
 				}
 			}
 
 			return false;
 		}
 
-		return walk(ast);
+		return walkForDetection(ast);
 	} catch (error) {
-		// Fallback to string check if AST parsing fails
 		console.warn(
 			`Failed to parse ${filename} for renderSSR detection, falling back to string check:`,
 			error,
 		);
 		return code.includes("renderSSR");
 	}
+}
+
+function resolveComponentPath(importPath: string, testFileId: string): string {
+	if (!importPath.startsWith(".")) {
+		// Absolute import, add extension if needed
+		return importPath.endsWith(".tsx") || importPath.endsWith(".ts")
+			? importPath
+			: `${importPath}.tsx`;
+	}
+
+	// Relative import - resolve relative to test file
+	const testFileDir = dirname(testFileId);
+	const resolvedPath = resolve(testFileDir, importPath);
+	const projectRoot = process.cwd();
+	let componentPath = "./" + relative(projectRoot, resolvedPath);
+
+	// Add extension if needed
+	if (!componentPath.endsWith(".tsx") && !componentPath.endsWith(".ts")) {
+		componentPath += ".tsx";
+	}
+
+	return componentPath;
+}
+
+function extractPropsFromJSX(attributes: any[]): Record<string, any> {
+	const props: Record<string, any> = {};
+
+	for (const attr of attributes) {
+		if (attr.type !== "JSXAttribute" || !attr.name?.name) continue;
+
+		const propName = attr.name.name;
+
+		if (
+			attr.value?.type === "JSXExpressionContainer" &&
+			attr.value.expression?.type === "Literal"
+		) {
+			props[propName] = attr.value.expression.value;
+		} else if (attr.value?.type === "Literal") {
+			props[propName] = attr.value.value;
+		}
+	}
+
+	return props;
+}
+
+function isTestFile(id: string): boolean {
+	return id.includes(".test.") || id.includes(".spec.");
+}
+
+function hasCommandsImport(node: any): boolean {
+	return (
+		node.type === "ImportDeclaration" &&
+		node.source?.value === "@vitest/browser/context" &&
+		node.specifiers?.some(
+			(spec: any) =>
+				spec.type === "ImportSpecifier" && spec.imported?.name === "commands",
+		)
+	);
 }
 
 // Vite plugin that transforms renderSSR(<Component />) calls to commands.renderSSR() calls
@@ -92,14 +143,8 @@ export function createSSRTransformPlugin(): Plugin {
 		enforce: "pre",
 
 		async transform(code, id) {
-			if (!id.includes(".test.") && !id.includes(".spec.")) {
-				return null;
-			}
-
-			// Use semantic analysis to detect renderSSR calls
-			if (!(await hasRenderSSRCall(code, id))) {
-				return null;
-			}
+			if (!isTestFile(id)) return null;
+			if (!(await hasRenderSSRCall(code, id))) return null;
 
 			console.log(`🔧 SSR Transform Plugin processing: ${id}`);
 
@@ -110,166 +155,105 @@ export function createSSRTransformPlugin(): Plugin {
 				const ast = parseSync(id, code);
 				const s = new MagicString(code);
 
-				// Track imports to resolve component paths
-				const imports: Map<string, string> = new Map();
-				let hasCommandsImport = false;
+				const componentImports = new Map<string, string>();
+				const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
+				let hasExistingCommandsImport = false;
 
-				// Track renderSSR aliases (for proper transformation)
-				const renderSSRIdentifiers = new Set<string>();
-				renderSSRIdentifiers.add("renderSSR"); // Default name
-
-				// Walk the AST to find imports and renderSSR calls
-				function walk(node: any) {
+				function walkForTransformation(node: any): void {
 					if (!node || typeof node !== "object") return;
 
-					// Track import declarations
-					if (node.type === "ImportDeclaration" && node.source?.value) {
+					// Track component imports
+					if (
+						node.type === "ImportDeclaration" &&
+						node.source?.value &&
+						node.specifiers
+					) {
 						const source = node.source.value;
-						if (node.specifiers) {
-							for (const spec of node.specifiers) {
-								if (spec.type === "ImportSpecifier" && spec.imported?.name) {
-									imports.set(spec.imported.name, source);
 
-									// Track renderSSR aliases
-									if (spec.imported.name === "renderSSR") {
-										renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
-									}
+						for (const spec of node.specifiers) {
+							if (spec.type === "ImportSpecifier" && spec.imported?.name) {
+								componentImports.set(spec.imported.name, source);
+
+								// Also track renderSSR aliases
+								if (spec.imported.name === "renderSSR") {
+									renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
 								}
-								// Handle default imports
-								if (spec.type === "ImportDefaultSpecifier") {
-									if (
-										spec.local?.name &&
-										spec.local.name.toLowerCase().includes("renderssr")
-									) {
-										renderSSRIdentifiers.add(spec.local.name);
-									}
-								}
+							}
+							if (
+								spec.type === "ImportDefaultSpecifier" &&
+								spec.local?.name?.toLowerCase().includes("renderssr")
+							) {
+								renderSSRIdentifiers.add(spec.local.name);
 							}
 						}
 					}
 
-					// Track variable declarations that alias renderSSR
+					// Track variable aliases for renderSSR
 					if (
 						node.type === "VariableDeclarator" &&
 						node.id?.name &&
-						node.init
+						node.init?.type === "Identifier" &&
+						renderSSRIdentifiers.has(node.init.name)
 					) {
-						if (
-							node.init.type === "Identifier" &&
-							renderSSRIdentifiers.has(node.init.name)
-						) {
-							renderSSRIdentifiers.add(node.id.name);
-						}
+						renderSSRIdentifiers.add(node.id.name);
 					}
 
-					// Check if commands is already imported
-					if (
-						node.type === "ImportDeclaration" &&
-						node.source?.value === "@vitest/browser/context"
-					) {
-						if (
-							node.specifiers?.some(
-								(spec: any) =>
-									spec.type === "ImportSpecifier" &&
-									spec.imported?.name === "commands",
-							)
-						) {
-							hasCommandsImport = true;
-						}
+					// Check for existing commands import
+					if (hasCommandsImport(node)) {
+						hasExistingCommandsImport = true;
 					}
 
-					// Find renderSSR calls with JSX (check all aliases)
+					// Transform renderSSR calls
 					if (
 						node.type === "CallExpression" &&
 						node.callee?.type === "Identifier" &&
 						renderSSRIdentifiers.has(node.callee.name)
 					) {
 						const jsxArg = node.arguments?.[0];
-						if (jsxArg?.type === "JSXElement") {
-							const componentName = jsxArg.openingElement?.name?.name;
-							if (componentName) {
-								const componentImportPath = imports.get(componentName);
-								if (componentImportPath) {
-									// Resolve the full path from the test file location
-									let componentPath = componentImportPath;
+						if (jsxArg?.type !== "JSXElement") return;
 
-									// If it's a relative import, resolve it relative to the test file
-									if (componentPath.startsWith(".")) {
-										const testFileDir = dirname(id);
-										const resolvedPath = resolve(testFileDir, componentPath);
-										// Convert back to relative path from project root
-										const projectRoot = process.cwd();
-										componentPath = "./" + relative(projectRoot, resolvedPath);
-									}
+						const componentName = jsxArg.openingElement?.name?.name;
+						if (!componentName) return;
 
-									// Add .tsx extension if not present
-									if (
-										!componentPath.endsWith(".tsx") &&
-										!componentPath.endsWith(".ts")
-									) {
-										componentPath += ".tsx";
-									}
+						const componentImportPath = componentImports.get(componentName);
+						if (!componentImportPath) return;
 
-									console.log(
-										`📁 Resolved path: ${componentImportPath} -> ${componentPath}`,
-									);
+						const componentPath = resolveComponentPath(componentImportPath, id);
+						const props = extractPropsFromJSX(
+							jsxArg.openingElement?.attributes || [],
+						);
+						const propsStr =
+							Object.keys(props).length > 0 ? `, ${JSON.stringify(props)}` : "";
+						const replacement = `commands.renderSSR("${componentPath}", "${componentName}"${propsStr})`;
 
-									// Extract props from JSX attributes
-									const props: Record<string, any> = {};
-									const attributes = jsxArg.openingElement?.attributes || [];
+						console.log(
+							`📁 Resolved path: ${componentImportPath} -> ${componentPath}`,
+						);
+						console.log(
+							`🔄 Transforming: ${node.callee.name}(<${componentName} />) -> ${replacement}`,
+						);
 
-									for (const attr of attributes) {
-										if (attr.type === "JSXAttribute" && attr.name?.name) {
-											const propName = attr.name.name;
-											if (attr.value?.type === "JSXExpressionContainer") {
-												// Handle expression values like {5}
-												const expr = attr.value.expression;
-												if (expr?.type === "Literal") {
-													props[propName] = expr.value;
-												}
-											} else if (attr.value?.type === "Literal") {
-												// Handle string literals
-												props[propName] = attr.value.value;
-											}
-										}
-									}
-
-									// Generate the replacement
-									const propsStr =
-										Object.keys(props).length > 0
-											? `, ${JSON.stringify(props)}`
-											: "";
-
-									const replacement = `commands.renderSSR("${componentPath}", "${componentName}"${propsStr})`;
-
-									console.log(
-										`🔄 Transforming: ${node.callee.name}(<${componentName} />) -> ${replacement}`,
-									);
-
-									s.overwrite(node.start, node.end, replacement);
-								}
-							}
-						}
+						s.overwrite(node.start, node.end, replacement);
 					}
 
-					// Recursively walk child nodes
+					// Recursively walk children
 					for (const key in node) {
 						const child = node[key];
 						if (Array.isArray(child)) {
-							child.forEach(walk);
+							child.forEach(walkForTransformation);
 						} else if (child && typeof child === "object") {
-							walk(child);
+							walkForTransformation(child);
 						}
 					}
 				}
 
-				walk(ast);
+				walkForTransformation(ast);
 
-				// Add commands import if not present and we made transformations
-				if (!hasCommandsImport && s.hasChanged()) {
-					// Find the last import statement to add commands import after it
+				// Add commands import if needed and we made changes
+				if (!hasExistingCommandsImport && s.hasChanged()) {
 					let lastImportEnd = 0;
-					function findLastImport(node: any) {
+
+					function findLastImport(node: any): void {
 						if (!node || typeof node !== "object") return;
 
 						if (node.type === "ImportDeclaration") {
