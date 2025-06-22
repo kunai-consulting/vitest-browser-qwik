@@ -30,7 +30,6 @@ export interface SSRRenderOptions {
 	baseElement?: HTMLElement;
 }
 
-// Track mounted components for cleanup
 const mountedContainers = new Set<HTMLElement>();
 let qwikLoaderInjected = false;
 
@@ -71,7 +70,6 @@ function createRenderResult(
 	};
 }
 
-// Shared helper for container setup
 function setupContainer(
 	baseElement?: HTMLElement,
 	container?: HTMLElement,
@@ -99,7 +97,7 @@ export function render(
 	return createRenderResult(setup.container, setup.baseElement);
 }
 
-export function renderSSRHTML(
+export function renderServerHTML(
 	html: string,
 	{ container, baseElement }: SSRRenderOptions = {},
 ): RenderResult {
@@ -108,12 +106,6 @@ export function renderSSRHTML(
 	setup.container.innerHTML = html;
 
 	return createRenderResult(setup.container, setup.baseElement);
-}
-
-export async function renderSSR(component: JSXOutput): Promise<RenderResult> {
-	const { renderSSR: serverRenderSSR } = await import("./index");
-
-	return await serverRenderSSR(component);
 }
 
 export interface RenderHookResult<Result> {
@@ -134,7 +126,6 @@ export function renderHook<Result>(
 	};
 }
 
-// Cleanup function to be called after each test
 export function cleanup(): void {
 	mountedContainers.forEach((container) => {
 		container.innerHTML = "";
