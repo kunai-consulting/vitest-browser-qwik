@@ -1,6 +1,90 @@
 import { dirname, relative, resolve } from "node:path";
 import type { Plugin } from "vitest/config";
 
+// Helper function to check if code contains renderSSR calls using semantic analysis
+async function hasRenderSSRCall(
+	code: string,
+	filename: string,
+): Promise<boolean> {
+	try {
+		const { parseSync } = await import("oxc-parser");
+		const ast = parseSync(filename, code);
+
+		// Track all renderSSR-related identifiers and their bindings
+		const renderSSRIdentifiers = new Set<string>();
+		renderSSRIdentifiers.add("renderSSR"); // Default name
+
+		function walk(node: any): boolean {
+			if (!node || typeof node !== "object") return false;
+
+			// Check for renderSSR imports with possible aliases
+			if (node.type === "ImportDeclaration" && node.source?.value) {
+				if (node.specifiers) {
+					for (const spec of node.specifiers) {
+						if (spec.type === "ImportSpecifier") {
+							// Check if importing renderSSR (could be aliased)
+							if (spec.imported?.name === "renderSSR") {
+								renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
+							}
+						}
+						// Handle default imports that might be renderSSR
+						if (spec.type === "ImportDefaultSpecifier") {
+							// This is a heuristic - could be improved with more context
+							if (
+								spec.local?.name &&
+								spec.local.name.toLowerCase().includes("renderssr")
+							) {
+								renderSSRIdentifiers.add(spec.local.name);
+							}
+						}
+					}
+				}
+			}
+
+			// Check for variable declarations that might alias renderSSR
+			if (node.type === "VariableDeclarator" && node.id?.name && node.init) {
+				if (
+					node.init.type === "Identifier" &&
+					renderSSRIdentifiers.has(node.init.name)
+				) {
+					renderSSRIdentifiers.add(node.id.name);
+				}
+			}
+
+			// Check for renderSSR function calls
+			if (
+				node.type === "CallExpression" &&
+				node.callee?.type === "Identifier"
+			) {
+				if (renderSSRIdentifiers.has(node.callee.name)) {
+					return true; // Found a renderSSR call
+				}
+			}
+
+			// Recursively walk child nodes
+			for (const key in node) {
+				const child = node[key];
+				if (Array.isArray(child)) {
+					if (child.some(walk)) return true;
+				} else if (child && typeof child === "object") {
+					if (walk(child)) return true;
+				}
+			}
+
+			return false;
+		}
+
+		return walk(ast);
+	} catch (error) {
+		// Fallback to string check if AST parsing fails
+		console.warn(
+			`Failed to parse ${filename} for renderSSR detection, falling back to string check:`,
+			error,
+		);
+		return code.includes("renderSSR");
+	}
+}
+
 // Vite plugin that transforms renderSSR(<Component />) calls to commands.renderSSR() calls
 export function createSSRTransformPlugin(): Plugin {
 	return {
@@ -8,13 +92,12 @@ export function createSSRTransformPlugin(): Plugin {
 		enforce: "pre",
 
 		async transform(code, id) {
-			// Only transform test files
 			if (!id.includes(".test.") && !id.includes(".spec.")) {
 				return null;
 			}
 
-			// Skip if no renderSSR calls
-			if (!code.includes("renderSSR")) {
+			// Use semantic analysis to detect renderSSR calls
+			if (!(await hasRenderSSRCall(code, id))) {
 				return null;
 			}
 
@@ -31,6 +114,10 @@ export function createSSRTransformPlugin(): Plugin {
 				const imports: Map<string, string> = new Map();
 				let hasCommandsImport = false;
 
+				// Track renderSSR aliases (for proper transformation)
+				const renderSSRIdentifiers = new Set<string>();
+				renderSSRIdentifiers.add("renderSSR"); // Default name
+
 				// Walk the AST to find imports and renderSSR calls
 				function walk(node: any) {
 					if (!node || typeof node !== "object") return;
@@ -42,8 +129,36 @@ export function createSSRTransformPlugin(): Plugin {
 							for (const spec of node.specifiers) {
 								if (spec.type === "ImportSpecifier" && spec.imported?.name) {
 									imports.set(spec.imported.name, source);
+
+									// Track renderSSR aliases
+									if (spec.imported.name === "renderSSR") {
+										renderSSRIdentifiers.add(spec.local?.name || "renderSSR");
+									}
+								}
+								// Handle default imports
+								if (spec.type === "ImportDefaultSpecifier") {
+									if (
+										spec.local?.name &&
+										spec.local.name.toLowerCase().includes("renderssr")
+									) {
+										renderSSRIdentifiers.add(spec.local.name);
+									}
 								}
 							}
+						}
+					}
+
+					// Track variable declarations that alias renderSSR
+					if (
+						node.type === "VariableDeclarator" &&
+						node.id?.name &&
+						node.init
+					) {
+						if (
+							node.init.type === "Identifier" &&
+							renderSSRIdentifiers.has(node.init.name)
+						) {
+							renderSSRIdentifiers.add(node.id.name);
 						}
 					}
 
@@ -63,11 +178,11 @@ export function createSSRTransformPlugin(): Plugin {
 						}
 					}
 
-					// Find renderSSR calls with JSX
+					// Find renderSSR calls with JSX (check all aliases)
 					if (
 						node.type === "CallExpression" &&
 						node.callee?.type === "Identifier" &&
-						node.callee.name === "renderSSR"
+						renderSSRIdentifiers.has(node.callee.name)
 					) {
 						const jsxArg = node.arguments?.[0];
 						if (jsxArg?.type === "JSXElement") {
@@ -128,7 +243,7 @@ export function createSSRTransformPlugin(): Plugin {
 									const replacement = `commands.renderSSR("${componentPath}", "${componentName}"${propsStr})`;
 
 									console.log(
-										`🔄 Transforming: renderSSR(<${componentName} />) -> ${replacement}`,
+										`🔄 Transforming: ${node.callee.name}(<${componentName} />) -> ${replacement}`,
 									);
 
 									s.overwrite(node.start, node.end, replacement);
