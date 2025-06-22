@@ -208,7 +208,7 @@ describe("SSR Transform Plugin", () => {
 			// Check that it contains the transformed call with resolved path
 			expect(result.code).toContain("commands.renderSSR(");
 			expect(result.code).toContain('"Counter"');
-			expect(result.code).toContain('{"initialCount":5}');
+			expect(result.code).toContain('"initialCount": 5');
 			expect(result.code).toContain(
 				'import { commands } from "@vitest/browser/context"',
 			);
@@ -231,7 +231,10 @@ describe("SSR Transform Plugin", () => {
 			expect(result).not.toBeNull();
 			expect(result.code).toContain("commands.renderSSR(");
 			expect(result.code).toContain('"HelloWorld"');
-			expect(result.code).not.toContain('{"');
+			// Should not have props parameter when no props
+			expect(result.code).toContain(
+				'renderSSR("./../../../../../test/fixtures/HelloWorld.tsx", "HelloWorld")',
+			);
 		});
 
 		it("should handle string literal props", async () => {
@@ -249,7 +252,7 @@ describe("SSR Transform Plugin", () => {
 
 			const result = await transform(code, "/test/string-props.test.tsx");
 			expect(result).not.toBeNull();
-			expect(result.code).toContain('{"title":"Hello"}');
+			expect(result.code).toContain('"title": "Hello"');
 		});
 
 		it("should handle multiple renderSSR calls", async () => {
@@ -270,7 +273,7 @@ describe("SSR Transform Plugin", () => {
 			const result = await transform(code, "/test/multiple.test.tsx");
 			expect(result).not.toBeNull();
 			expect(result.code).toContain('"Counter"');
-			expect(result.code).toContain('{"initialCount":1}');
+			expect(result.code).toContain('"initialCount": 1');
 			expect(result.code).toContain('"HelloWorld"');
 		});
 
@@ -424,8 +427,182 @@ describe("SSR Transform Plugin", () => {
 			if (result) {
 				expect(result.code).toContain("commands.renderSSR");
 				expect(result.code).toContain("Counter");
-				expect(result.code).toContain('{"initialCount":5}');
+				expect(result.code).toContain('"initialCount": 5');
 				expect(result.code).toContain("import { commands }");
+			}
+		});
+	});
+
+	describe("complex JSX expressions", () => {
+		it("should handle array expressions", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const items = ["a", "b"];
+					renderSSR(<MyComponent list={[1, 2, 3]} items={items} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/array-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"list": [1, 2, 3]');
+				expect(result.code).toContain('"items": items');
+			}
+		});
+
+		it("should handle object expressions", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const user = { name: "John" };
+					renderSSR(<MyComponent config={{ theme: "dark", size: 10 }} user={user} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/object-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"config": { theme: "dark", size: 10 }');
+				expect(result.code).toContain('"user": user');
+			}
+		});
+
+		it("should handle variable references", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const count = 5;
+					const isVisible = true;
+					renderSSR(<MyComponent count={count} visible={isVisible} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/variable-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"count": count');
+				expect(result.code).toContain('"visible": isVisible');
+			}
+		});
+
+		it("should handle function calls", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					renderSSR(<MyComponent value={getValue()} timestamp={Date.now()} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/function-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"value": getValue()');
+				expect(result.code).toContain('"timestamp": Date.now()');
+			}
+		});
+
+		it("should handle complex expressions", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const base = 10;
+					renderSSR(<MyComponent 
+						computed={base * 2 + 1} 
+						conditional={base > 5 ? "high" : "low"}
+						member={obj.property}
+						template={\`value: \${base}\`}
+					/>);
+				});
+			`;
+
+			const result = await transform(code, "/test/complex-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"computed": base * 2 + 1');
+				expect(result.code).toContain(
+					'"conditional": base > 5 ? "high" : "low"',
+				);
+				expect(result.code).toContain('"member": obj.property');
+				expect(result.code).toContain('"template": `value: ${base}`');
+			}
+		});
+
+		it("should handle spread syntax", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const props = { a: 1, b: 2 };
+					renderSSR(<MyComponent {...props} extra="value" />);
+				});
+			`;
+
+			const result = await transform(code, "/test/spread-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				// Should handle spread attributes (though they can't be serialized perfectly)
+				expect(result.code).toContain("MyComponent");
+			}
+		});
+
+		it("should handle mixed prop types", async () => {
+			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
+			const plugin = createSSRTransformPlugin();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { MyComponent } from "./fixtures/MyComponent";
+				
+				test("example", () => {
+					const items = [1, 2, 3];
+					renderSSR(<MyComponent 
+						title="Hello World"
+						count={42}
+						items={items}
+						config={{ nested: { value: true } }}
+						handler={() => console.log("click")}
+					/>);
+				});
+			`;
+
+			const result = await transform(code, "/test/mixed-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"title": "Hello World"');
+				expect(result.code).toContain('"count": 42');
+				expect(result.code).toContain('"items": items');
+				expect(result.code).toContain('"config": { nested: { value: true } }');
+				expect(result.code).toContain('"handler": () => console.log("click")');
 			}
 		});
 	});
