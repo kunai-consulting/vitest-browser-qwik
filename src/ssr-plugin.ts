@@ -143,7 +143,7 @@ function resolveComponentPath(importPath: string, testFileId: string): string {
 	const testFileDir = dirname(testFileId);
 	const resolvedPath = resolve(testFileDir, importPath);
 	const projectRoot = process.cwd();
-	let componentPath = "./" + relative(projectRoot, resolvedPath);
+	let componentPath = `./${relative(projectRoot, resolvedPath)}`;
 
 	// Add extension if needed
 	if (!componentPath.endsWith(".tsx") && !componentPath.endsWith(".ts")) {
