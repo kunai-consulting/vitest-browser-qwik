@@ -1,5 +1,12 @@
 import type { JSXOutput } from "@builder.io/qwik";
-import { render as qwikRender } from "@builder.io/qwik";
+import {
+	component$,
+	implicit$FirstArg,
+	isServer,
+	noSerialize,
+	render as qwikRender,
+	useTask$,
+} from "@builder.io/qwik";
 import { getQwikLoaderScript } from "@builder.io/qwik/server";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
@@ -113,15 +120,32 @@ export interface RenderHookResult<Result> {
 	unmount: () => void;
 }
 
-export function renderHook<Result>(
+export async function renderHook<Result>(
 	hook: () => Result,
-): RenderHookResult<Result> {
-	const result = hook();
+): Promise<RenderHookResult<Result>> {
+	const resultContainer = { value: undefined as Result | undefined };
+	let resolveRender: () => void;
+
+	const renderPromise = new Promise<void>((resolve) => {
+		resolveRender = resolve;
+	});
+
+	const TestHookComponent = component$(() => {
+		const result = hook();
+		resultContainer.value = result;
+		resolveRender();
+		return <div data-testid="hook-result"></div>;
+	});
+
+	const screen = render(<TestHookComponent />);
+
+	// Wait for the component to actually render
+	await renderPromise;
 
 	return {
-		result,
+		result: resultContainer.value!,
 		unmount: () => {
-			// Qwik handles cleanup automatically
+			screen.unmount();
 		},
 	};
 }

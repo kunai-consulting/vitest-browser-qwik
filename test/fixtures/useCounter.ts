@@ -6,7 +6,7 @@ export function useCounter({ countSignal }: { countSignal: Signal<number> }): {
 } {
 	const count = countSignal;
 
-	const increment = $(() => count.value++);
+	const increment$ = $(() => count.value++);
 
-	return { count, increment };
+	return { count, increment: increment$ };
 }
