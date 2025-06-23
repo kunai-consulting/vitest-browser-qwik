@@ -1,12 +1,5 @@
 import type { JSXOutput } from "@builder.io/qwik";
-import {
-	component$,
-	implicit$FirstArg,
-	isServer,
-	noSerialize,
-	render as qwikRender,
-	useTask$,
-} from "@builder.io/qwik";
+import { component$, render as qwikRender } from "@builder.io/qwik";
 import { getQwikLoaderScript } from "@builder.io/qwik/server";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
@@ -143,7 +136,11 @@ export async function renderHook<Result>(
 	await renderPromise;
 
 	return {
-		result: resultContainer.value!,
+		result:
+			resultContainer.value ??
+			(() => {
+				throw new Error("Hook result not available");
+			})(),
 		unmount: () => {
 			screen.unmount();
 		},

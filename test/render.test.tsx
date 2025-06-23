@@ -1,6 +1,6 @@
-import { page, userEvent } from "@vitest/browser/context";
+import { page } from "@vitest/browser/context";
 // import { Button } from "react-aria-components";
-import { expect, test, vi } from "vitest";
+import { expect, test } from "vitest";
 import { render } from "../src/index";
 import { Counter } from "./fixtures/Counter";
 import { HelloWorld } from "./fixtures/HelloWorld";

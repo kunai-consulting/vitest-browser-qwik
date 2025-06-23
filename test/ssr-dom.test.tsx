@@ -1,4 +1,3 @@
-import { page } from "@vitest/browser/context";
 import { expect, test } from "vitest";
 import { renderSSR } from "../src";
 import { Counter } from "./fixtures/Counter";

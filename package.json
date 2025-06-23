@@ -28,14 +28,17 @@
 		"access": "public"
 	},
 	"scripts": {
-		"lint": "eslint --cache .",
-		"lint:fix": "pnpm run lint --fix",
+		"check": "biome ci .",
+		"check.format": "biome format .",
+		"check.lint": "biome check .",
+		"fix": "pnpm lint && pnpm format",
+		"format": "biome format --write .",
+		"lint": "biome check --write --unsafe .",
 		"build": "tsdown",
 		"dev": "tsdown --watch",
 		"test": "vitest",
 		"test:unit": "vitest --config vitest.unit.config.ts",
 		"typecheck": "tsc --noEmit",
-		"format": "prettier --cache --write .",
 		"release": "bumpp && pnpm publish",
 		"prepublishOnly": "pnpm run build"
 	},
