@@ -67,5 +67,6 @@ export default defineConfig({
 				renderSSR: renderSSRCommand,
 			},
 		},
+		exclude: ["node_modules", "test/ssr-plugin.test.ts"],
 	},
 });
