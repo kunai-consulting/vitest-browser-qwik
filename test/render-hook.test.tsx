@@ -3,12 +3,14 @@ import { expect, test } from "vitest";
 import { renderHook } from "../src/index";
 import { useCounter } from "./fixtures/useCounter";
 
-test("should increment counter", () => {
-	const { result } = renderHook(() =>
+test("should increment counter", async () => {
+	const { result } = await renderHook(() =>
 		useCounter({ countSignal: useSignal(0) }),
 	);
 
-	result.increment();
+	console.log("RESULT", result);
+
+	await result.increment();
 
 	expect(result.count.value).toBe(1);
 });

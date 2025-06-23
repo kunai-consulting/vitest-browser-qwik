@@ -19,10 +19,10 @@ test("renders counter", async () => {
 	await expect.element(screen.getByText("Count is 2")).toBeVisible();
 });
 
-// test("should fire the onPress/onClick handler", async () => {
-// 	const handler = vi.fn();
-// 	const screen = page.render(<Button onPress={handler}>Button</Button>);
-// 	await userEvent.click(screen.getByRole("button"));
-// 	// await screen.getByRole('button').click()
-// 	expect(handler).toHaveBeenCalled();
-// });
+// // test("should fire the onPress/onClick handler", async () => {
+// // 	const handler = vi.fn();
+// // 	const screen = page.render(<Button onPress={handler}>Button</Button>);
+// // 	await userEvent.click(screen.getByRole("button"));
+// // 	// await screen.getByRole('button').click()
+// // 	expect(handler).toHaveBeenCalled();
+// // });

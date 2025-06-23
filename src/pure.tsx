@@ -1,5 +1,12 @@
 import type { JSXOutput } from "@builder.io/qwik";
-import { render as qwikRender } from "@builder.io/qwik";
+import {
+	component$,
+	implicit$FirstArg,
+	isServer,
+	noSerialize,
+	render as qwikRender,
+	useTask$,
+} from "@builder.io/qwik";
 import { getQwikLoaderScript } from "@builder.io/qwik/server";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
@@ -25,11 +32,15 @@ export interface RenderOptions {
 	baseElement?: HTMLElement;
 }
 
-// Track mounted components for cleanup
+export interface SSRRenderOptions {
+	container?: HTMLElement;
+	baseElement?: HTMLElement;
+}
+
 const mountedContainers = new Set<HTMLElement>();
 let qwikLoaderInjected = false;
 
-function ensureQwikLoader() {
+function csrQwikLoader() {
 	if (qwikLoaderInjected) return;
 
 	const script = document.createElement("script");
@@ -38,23 +49,10 @@ function ensureQwikLoader() {
 	qwikLoaderInjected = true;
 }
 
-export function render(
-	ui: JSXOutput,
-	{ container, baseElement }: RenderOptions = {},
+function createRenderResult(
+	container: HTMLElement,
+	baseElement: HTMLElement,
 ): RenderResult {
-	ensureQwikLoader();
-
-	if (!baseElement) {
-		baseElement = document.body;
-	}
-
-	if (!container) {
-		container = baseElement.appendChild(document.createElement("div"));
-	}
-
-	qwikRender(container, ui);
-
-	// Track this container for cleanup
 	mountedContainers.add(container);
 
 	const unmount = () => {
@@ -79,25 +77,79 @@ export function render(
 	};
 }
 
+function setupContainer(
+	baseElement?: HTMLElement,
+	container?: HTMLElement,
+): { container: HTMLElement; baseElement: HTMLElement } {
+	if (!baseElement) {
+		baseElement = document.body;
+	}
+
+	if (!container) {
+		container = baseElement.appendChild(document.createElement("div"));
+	}
+
+	return { container, baseElement };
+}
+
+export function render(
+	ui: JSXOutput,
+	{ container, baseElement }: RenderOptions = {},
+): RenderResult {
+	csrQwikLoader();
+
+	const setup = setupContainer(baseElement, container);
+	qwikRender(setup.container, ui);
+
+	return createRenderResult(setup.container, setup.baseElement);
+}
+
+export function renderServerHTML(
+	html: string,
+	{ container, baseElement }: SSRRenderOptions = {},
+): RenderResult {
+	const setup = setupContainer(baseElement, container);
+
+	setup.container.innerHTML = html;
+
+	return createRenderResult(setup.container, setup.baseElement);
+}
+
 export interface RenderHookResult<Result> {
 	result: Result;
 	unmount: () => void;
 }
 
-export function renderHook<Result>(
+export async function renderHook<Result>(
 	hook: () => Result,
-): RenderHookResult<Result> {
-	const result = hook();
+): Promise<RenderHookResult<Result>> {
+	const resultContainer = { value: undefined as Result | undefined };
+	let resolveRender: () => void;
+
+	const renderPromise = new Promise<void>((resolve) => {
+		resolveRender = resolve;
+	});
+
+	const TestHookComponent = component$(() => {
+		const result = hook();
+		resultContainer.value = result;
+		resolveRender();
+		return <div data-testid="hook-result"></div>;
+	});
+
+	const screen = render(<TestHookComponent />);
+
+	// Wait for the component to actually render
+	await renderPromise;
 
 	return {
-		result,
+		result: resultContainer.value!,
 		unmount: () => {
-			// Qwik handles cleanup automatically
+			screen.unmount();
 		},
 	};
 }
 
-// Cleanup function to be called after each test
 export function cleanup(): void {
 	mountedContainers.forEach((container) => {
 		container.innerHTML = "";

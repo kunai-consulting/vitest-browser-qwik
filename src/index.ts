@@ -1,13 +1,23 @@
 import type { JSXOutput } from "@builder.io/qwik";
 import { page } from "@vitest/browser/context";
 import { beforeEach } from "vitest";
-import { cleanup, render } from "./pure";
+import { cleanup, render, renderServerHTML } from "./pure";
 
-export type { RenderResult } from "./pure";
-export { cleanup, render, renderHook } from "./pure";
+export declare function renderSSR(
+	jsxNode: JSXOutput,
+): Promise<import("./pure").RenderResult>;
+
+export type { RenderResult, SSRRenderOptions } from "./pure";
+export {
+	cleanup,
+	render,
+	renderHook,
+	renderServerHTML,
+} from "./pure";
 
 page.extend({
 	render,
+	renderServerHTML: renderServerHTML,
 	[Symbol.for("vitest:component-cleanup")]: cleanup,
 });
 
@@ -18,10 +28,11 @@ beforeEach(() => {
 declare module "@vitest/browser/context" {
 	interface BrowserPage {
 		render: typeof render;
+		renderServerHTML: typeof renderServerHTML;
 	}
 
 	interface BrowserCommands {
-		renderSSR: (component: JSXOutput) => Promise<{
+		renderOnServer: (component: JSXOutput) => Promise<{
 			html: string;
 		}>;
 	}
