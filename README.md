@@ -1,6 +1,6 @@
 # Vitest Browser Qwik
 
-A modern testing setup demonstrating browser-based testing for Qwik components using Vitest. This project showcases how to effectively test Qwik components with both Client-Side Rendering (CSR) and Server-Side Rendering (SSR), making it perfect for testing complex UI behaviors and SSR scenarios.
+A modern testing setup demonstrating browser-based testing for Qwik components using Vitest. This project showcases how to effectively test Qwik components with both Client-Side Rendering (CSR) and Server-Side Rendering (SSR), making it perfect for testing complex UI behaviors across environments.
 
 ## Getting Started
 
@@ -11,7 +11,7 @@ pnpm add vitest-browser-qwik
 ## Core Features
 
 - **`render`** - Client-Side Rendering for interactive component testing
-- **`renderSSR`** - Server-Side Rendering for testing SSR output and hydration
+- **`renderSSR`** - Server-Side Rendering for testing SSR output and environment contexts
 - **`renderHook`** - Hook testing utilities (currently only CSR supported)
 - All functions are async for predictable testing behavior
 
@@ -20,6 +20,7 @@ pnpm add vitest-browser-qwik
 ```tsx
 import { render } from 'vitest-browser-qwik'
 import { expect, test } from 'vitest'
+import { Counter } from './components/counter'
 
 test('renders counter with CSR', async () => {
   const screen = await render(<Counter initialCount={1} />);
@@ -34,6 +35,7 @@ test('renders counter with CSR', async () => {
 ```tsx
 import { renderSSR } from 'vitest-browser-qwik'
 import { expect, test } from 'vitest'
+import { Counter } from './components/counter'
 
 test('renders counter with SSR', async () => {
   const screen = await renderSSR(<Counter initialCount={5} />);
@@ -42,7 +44,7 @@ test('renders counter with SSR', async () => {
   expect(screen.container.innerHTML).toContain('Count is 5');
   expect(screen.container.innerHTML).toContain('button');
   
-  // Can also use DOM queries on SSR content
+  // Can also use DOM queries on the content initially rendered by SSR
   await expect.element(screen.getByText('Count is 5')).toBeVisible();
 });
 ```
@@ -54,10 +56,9 @@ import { renderHook } from 'vitest-browser-qwik'
 import { useSignal } from '@builder.io/qwik'
 
 test('tests custom hook', async () => {
-  const { result } = await renderHook(() => {
-    const count = useSignal(0);
-    return { count, increment: () => count.value++ };
-  });
+  const { result } = await renderHook(() => useCounter({
+    countSignal: useSignal(0),
+  }));
   
   expect(result.count.value).toBe(0);
   result.increment();
@@ -69,23 +70,10 @@ test('tests custom hook', async () => {
 
 Both `render` and `renderSSR` provide the same testing interface, but work differently under the hood:
 
-- **`render` (CSR)**: Renders components in the browser context with full interactivity
+- **`render` (CSR)**: Renders components in the browser context
 - **`renderSSR` (SSR)**: Executes components in a Node.js context to generate server-side HTML, then provides that HTML for testing
 
 The SSR approach is unique because it executes your components in a different context than your test files, simulating real server-side rendering behavior.
-
-### Page Object Integration
-
-You can also use the `page` object, as this library injects `.render` and `.renderServerHTML` methods:
-
-```tsx
-import { expect, test } from 'vitest'
-
-test('renders counter with page object', async () => {
-  const screen = await page.render(<Counter initialCount={1} />);
-  await expect.element(screen.getByText('Count is 1')).toBeVisible();
-});
-```
 
 ## Render Options
 
