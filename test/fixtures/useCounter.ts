@@ -1,12 +1,12 @@
-import { $, type Signal } from "@builder.io/qwik";
+import { $, type QRL, type Signal } from "@builder.io/qwik";
 
 export function useCounter({ countSignal }: { countSignal: Signal<number> }): {
 	count: Signal<number>;
-	increment: () => void;
+	increment$: QRL<() => number>;
 } {
 	const count = countSignal;
 
 	const increment$ = $(() => count.value++);
 
-	return { count, increment: increment$ };
+	return { count, increment$ };
 }

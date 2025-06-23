@@ -10,7 +10,7 @@ test("should increment counter", async () => {
 
 	console.log("RESULT", result);
 
-	await result.increment();
+	await result.increment$();
 
 	expect(result.count.value).toBe(1);
 });
