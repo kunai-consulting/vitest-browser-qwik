@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
-import { qwikVite } from "@builder.io/qwik/optimizer";
-import { renderToString } from "@builder.io/qwik/server";
+import { qwikVite, symbolMapper } from "@builder.io/qwik/optimizer";
 import { register as handleTSXImports } from "tsx/esm/api";
 import { defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
@@ -17,7 +16,7 @@ type ComponentFormat = BrowserCommand<
 >;
 
 const renderSSRCommand: ComponentFormat = async (
-	_,
+	ctx,
 	componentPath: string,
 	componentName: string,
 	props: Record<string, unknown> = {},
@@ -26,13 +25,11 @@ const renderSSRCommand: ComponentFormat = async (
 		const projectRoot = process.cwd();
 		const absoluteComponentPath = resolve(projectRoot, componentPath);
 
-		console.log(
-			`Resolving component path: ${componentPath} -> ${absoluteComponentPath}`,
+		const viteServer = ctx.project.vite;
+
+		const componentModule = await viteServer.ssrLoadModule(
+			absoluteComponentPath,
 		);
-
-		const fileUrl = `file://${absoluteComponentPath}?t=${Date.now()}`;
-
-		const componentModule = await import(fileUrl);
 		const Component = componentModule[componentName];
 
 		if (!Component) {
@@ -41,12 +38,26 @@ const renderSSRCommand: ComponentFormat = async (
 			);
 		}
 
-		const jsx = Component(props);
+		const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
 
-		const result = await renderToString(jsx, {
+		console.log("Vitest ctx project config:", {
+			base: ctx.project.config.base,
+			root: ctx.project.config.root,
+			server: ctx.project.config.server,
+		});
+		const { jsx } = qwikModule;
+		const jsxElement = jsx(Component, props);
+
+		const serverModule = await viteServer.ssrLoadModule(
+			"@builder.io/qwik/server",
+		);
+		const { renderToString } = serverModule;
+
+		const result = await renderToString(jsxElement, {
 			containerTagName: "div",
-			base: "/build/",
+			base: "/",
 			qwikLoader: { include: "always" },
+			symbolMapper: globalThis.qwikSymbolMapper,
 		});
 
 		return { html: result.html };
@@ -57,7 +68,21 @@ const renderSSRCommand: ComponentFormat = async (
 };
 
 export default defineConfig({
-	plugins: [createSSRTransformPlugin(), qwikVite()],
+	plugins: [
+		createSSRTransformPlugin(),
+		qwikVite({
+			devTools: {
+				clickToSource: ["Alt"],
+			},
+		}),
+		{
+			name: "resolve-qwik-symbol-mapper",
+			configResolved(config) {
+				console.log("CONFIG RESOLVED", config);
+				globalThis.qwikSymbolMapper = symbolMapper;
+			},
+		},
+	],
 	test: {
 		browser: {
 			enabled: true,
