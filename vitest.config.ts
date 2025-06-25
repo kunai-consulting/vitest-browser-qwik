@@ -26,6 +26,10 @@ const renderSSRCommand: ComponentFormat = async (
 		const absoluteComponentPath = resolve(projectRoot, componentPath);
 
 		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			viteServer.config.define!['__vite_ssr_import_meta__.env.' + key] = JSON.stringify(value);
+		}
 
 		const componentModule = await viteServer.ssrLoadModule(
 			absoluteComponentPath,

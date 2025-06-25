@@ -44,7 +44,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.0",
-		"@builder.io/qwik": "1.13",
+		"@builder.io/qwik": "1.14.1",
 		"@oxc-project/types": "^0.73.2",
 		"@types/node": "^22.15.17",
 		"@vitest/browser": "^3.2.4",
