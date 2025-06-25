@@ -3,6 +3,7 @@ import { page } from "@vitest/browser/context";
 import { beforeEach } from "vitest";
 import { cleanup, render, renderServerHTML } from "./pure";
 
+/** This is replaced with actual code by the ssr-plugin.ts transform */
 export declare function renderSSR(
 	jsxNode: JSXOutput,
 ): Promise<import("./pure").RenderResult>;

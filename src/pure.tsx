@@ -97,13 +97,34 @@ export function render(
 	return createRenderResult(setup.container, setup.baseElement);
 }
 
+function setHTMLWithScripts(container: HTMLElement, html: string) {
+	container.innerHTML = html;
+	    // Find all script tags inside the container
+    const scripts = container.querySelectorAll('script');
+
+    scripts.forEach(oldScript => {
+        const newScript = document.createElement('script');
+
+        // Copy attributes (like src, type, etc.)
+        for (const attr of (oldScript.attributes as any as Attr[])) {
+            newScript.setAttribute(attr.name, attr.value);
+        }
+
+        // Inline script content
+        newScript.text = oldScript.textContent ?? "";
+
+        // Replace the old script with the new one to trigger execution
+        oldScript.parentNode?.replaceChild(newScript, oldScript);
+    });
+}
+
 export function renderServerHTML(
 	html: string,
 	{ container, baseElement }: SSRRenderOptions = {},
 ): RenderResult {
 	const setup = setupContainer(baseElement, container);
 
-	setup.container.innerHTML = html;
+	setHTMLWithScripts(setup.container, html);
 
 	return createRenderResult(setup.container, setup.baseElement);
 }
