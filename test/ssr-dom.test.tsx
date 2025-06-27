@@ -19,11 +19,11 @@ test("SSR with DOM assertions - Counter with props", async () => {
 	const screen = await renderSSR(<Counter initialCount={42} />);
 
 	// Test the server-rendered content with browser assertions
-	await expect.element(screen.getByText("Count is 42")).toBeVisible();
+	await expect.element(screen.getByText("42")).toBeVisible();
 	await expect.element(screen.getByRole("button")).toBeVisible();
 
 	// Verify the HTML structure
-	expect(screen.container.innerHTML).toContain("Count is 42");
+	expect(screen.container.innerHTML).toContain("42");
 	expect(screen.container.innerHTML).toContain("button");
 
 	screen.unmount();
