@@ -43,12 +43,6 @@ const renderSSRCommand: ComponentFormat = async (
 		}
 
 		const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
-
-		console.log("Vitest ctx project config:", {
-			base: ctx.project.config.base,
-			root: ctx.project.config.root,
-			server: ctx.project.config.server,
-		});
 		const { jsx } = qwikModule;
 		const jsxElement = jsx(Component, props);
 
@@ -81,8 +75,7 @@ export default defineConfig({
 		}),
 		{
 			name: "resolve-qwik-symbol-mapper",
-			configResolved(config) {
-				console.log("CONFIG RESOLVED", config);
+			configResolved() {
 				globalThis.qwikSymbolMapper = symbolMapper;
 			},
 		},

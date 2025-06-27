@@ -10,8 +10,6 @@ test("SSR with DOM assertions - HelloWorld", async () => {
 	// Now we can use Vitest browser assertions on the SSR HTML
 	await expect.element(screen.getByText("Hello World")).toBeVisible();
 	expect(screen.container.innerHTML).toContain("Hello World");
-
-	screen.unmount();
 });
 
 test("SSR with DOM assertions - Counter with props", async () => {
@@ -25,8 +23,6 @@ test("SSR with DOM assertions - Counter with props", async () => {
 	// Verify the HTML structure
 	expect(screen.container.innerHTML).toContain("42");
 	expect(screen.container.innerHTML).toContain("button");
-
-	screen.unmount();
 });
 
 test("SSR HTML can be queried and debugged", async () => {
@@ -45,8 +41,6 @@ test("SSR HTML can be queried and debugged", async () => {
 	// Fragment functionality works
 	const fragment = screen.asFragment();
 	expect(fragment.textContent).toContain("Count is 5");
-
-	screen.unmount();
 });
 
 test("Multiple SSR components in same test", async () => {
@@ -55,9 +49,6 @@ test("Multiple SSR components in same test", async () => {
 
 	await expect.element(helloScreen.getByText("Hello World")).toBeVisible();
 	await expect.element(counterScreen.getByText("Count is 10")).toBeVisible();
-
-	helloScreen.unmount();
-	counterScreen.unmount();
 });
 
 test("SSR Counter interactivity test", async () => {
@@ -72,6 +63,4 @@ test("SSR Counter interactivity test", async () => {
 
 	// Check if count increased (this will likely fail since there's no hydration)
 	await expect.element(screen.getByText("Count is 6")).toBeVisible();
-
-	screen.unmount();
 });
