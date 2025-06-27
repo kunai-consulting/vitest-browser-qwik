@@ -1,6 +1,6 @@
 {
 	"name": "vitest-browser-qwik",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"packageManager": "pnpm@10.11.0",
 	"description": "A starter for creating a tsdown package.",
 	"type": "module",
