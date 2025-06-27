@@ -52,17 +52,21 @@ test('renders counter with SSR', async () => {
 ### Hook Testing Example
 
 ```tsx
-import { renderHook } from 'vitest-browser-qwik'
-import { useSignal } from '@builder.io/qwik'
+import { useSignal } from "@builder.io/qwik";
+import { expect, test } from "vitest";
+import { renderHook } from "vitest-browser-qwik";
+import { useCounter } from "./fixtures/useCounter";
 
-test('tests custom hook', async () => {
-  const { result } = await renderHook(() => useCounter({
-    countSignal: useSignal(0),
-  }));
-  
-  expect(result.count.value).toBe(0);
-  result.increment();
-  expect(result.count.value).toBe(1);
+test("should increment counter", async () => {
+	const { result } = await renderHook(() =>
+		useCounter({ countSignal: useSignal(0) }),
+	);
+
+	console.log("RESULT", result);
+
+	await result.increment$();
+
+	expect(result.count.value).toBe(1);
 });
 ```
 
