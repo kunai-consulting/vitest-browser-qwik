@@ -99,23 +99,23 @@ export function render(
 
 function setHTMLWithScripts(container: HTMLElement, html: string) {
 	container.innerHTML = html;
-	    // Find all script tags inside the container
-    const scripts = container.querySelectorAll('script');
+	// Find all script tags inside the container
+	const scripts = container.querySelectorAll("script");
 
-    scripts.forEach(oldScript => {
-        const newScript = document.createElement('script');
+	scripts.forEach((oldScript) => {
+		const newScript = document.createElement("script");
 
-        // Copy attributes (like src, type, etc.)
-        for (const attr of (oldScript.attributes as any as Attr[])) {
-            newScript.setAttribute(attr.name, attr.value);
-        }
+		// Copy attributes (like src, type, etc.)
+		for (const attr of oldScript.attributes as any as Attr[]) {
+			newScript.setAttribute(attr.name, attr.value);
+		}
 
-        // Inline script content
-        newScript.text = oldScript.textContent ?? "";
+		// Inline script content
+		newScript.text = oldScript.textContent ?? "";
 
-        // Replace the old script with the new one to trigger execution
-        oldScript.parentNode?.replaceChild(newScript, oldScript);
-    });
+		// Replace the old script with the new one to trigger execution
+		oldScript.parentNode?.replaceChild(newScript, oldScript);
+	});
 }
 
 export function renderServerHTML(

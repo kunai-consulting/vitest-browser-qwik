@@ -1,10 +1,10 @@
+import { component$, useSignal } from "@builder.io/qwik";
 import { page } from "@vitest/browser/context";
 // import { Button } from "react-aria-components";
 import { expect, test } from "vitest";
 import { render } from "../src/index";
 import { Counter } from "./fixtures/Counter";
 import { HelloWorld } from "./fixtures/HelloWorld";
-import { component$, useSignal } from "@builder.io/qwik";
 
 test("renders simple component", async () => {
 	const screen = render(<HelloWorld />);
@@ -20,7 +20,7 @@ test("renders counter", async () => {
 	await expect.element(screen.getByText("Count is 2")).toBeVisible();
 });
 
-export const InteractiveCounter = component$<{ initialCount: number }>(
+const InteractiveCounter = component$<{ initialCount: number }>(
 	({ initialCount = 0 }) => {
 		const count = useSignal(initialCount);
 
@@ -42,4 +42,3 @@ test("renders local counter", async () => {
 	await screen.getByRole("button", { name: "Increment" }).click();
 	await expect.element(screen.getByText("Count is 2")).toBeVisible();
 });
-

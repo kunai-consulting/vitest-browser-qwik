@@ -1,4 +1,4 @@
-import { $, useSignal, type QRL, type Signal } from "@builder.io/qwik";
+import { $, type QRL, type Signal, useSignal } from "@builder.io/qwik";
 import { expect, test } from "vitest";
 import { renderHook } from "../src/index";
 import { useCounter } from "./fixtures/useCounter";
@@ -15,7 +15,7 @@ test("should increment counter", async () => {
 	expect(result.count.value).toBe(1);
 });
 
-export function useOtherCounter({ countSignal }: { countSignal: Signal<number> }): {
+function useOtherCounter({ countSignal }: { countSignal: Signal<number> }): {
 	count: Signal<number>;
 	increment$: QRL<() => number>;
 } {
@@ -37,8 +37,6 @@ test("should increment local hook counter", async () => {
 
 	expect(result.count.value).toBe(1);
 });
-
-
 
 // test('allows rerendering', () => {
 //   const { result, rerender } = renderHook(
