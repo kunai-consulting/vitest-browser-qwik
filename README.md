@@ -77,7 +77,7 @@ Both `render` and `renderSSR` provide the same testing interface, but work diffe
 - **`render` (CSR)**: Renders components in the browser context
 - **`renderSSR` (SSR)**: Executes components in a Node.js context to generate server-side HTML, then provides that HTML for testing
 
-The SSR approach is unique because it executes your components in a different context than your test files, simulating real server-side rendering behavior.
+The SSR approach is unique because it executes your components in a different context than your test files, real server-side rendering behavior in Vitest.
 
 ## Render Options
 
