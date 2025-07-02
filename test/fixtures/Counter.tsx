@@ -1,4 +1,9 @@
-import { component$, isServer, useSignal, useTask$ } from "@builder.io/qwik";
+import {
+	component$,
+	isServer,
+	useSignal,
+	useTask$,
+} from "@builder.io/qwik";
 
 export const Counter = component$<{ initialCount: number }>(
 	({ initialCount = 0 }) => {
@@ -45,3 +50,18 @@ export const InteractiveCounter = component$<{ initialCount: number }>(
 		);
 	},
 );
+
+export const TaskCounter = component$(() => {
+	const count = useSignal(0);
+
+	useTask$(() => {
+		console.log("FROM THE TASK COUNTER");
+		count.value = count.value + 5;
+	});
+
+	return (
+		<button type="button" onClick$={() => count.value++}>
+			Count is {count.value}
+		</button>
+	);
+});

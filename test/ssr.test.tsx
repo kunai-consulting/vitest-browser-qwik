@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { renderSSR } from "../src";
-import { Counter } from "./fixtures/Counter";
+import { Counter, TaskCounter } from "./fixtures/Counter";
 import { HelloWorld } from "./fixtures/HelloWorld";
 
 test("SSR renders Counter correctly", async () => {
@@ -16,4 +16,10 @@ test("SSR rendering with HelloWorld", async () => {
 
 	expect(screen.container.innerHTML).toContain("Hello World");
 	expect(screen.container.innerHTML).toContain("<div");
+});
+
+test("Incrementing count from task", async () => {
+	const screen = await renderSSR(<TaskCounter />);
+
+	await expect(screen.getByRole("button")).toHaveTextContent("5");
 });
