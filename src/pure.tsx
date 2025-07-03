@@ -46,6 +46,7 @@ function createRenderResult(
 	container: HTMLElement,
 	baseElement: HTMLElement,
 ): RenderResult {
+	console.log("createRenderResult -- calling mountedContainers.add");
 	mountedContainers.add(container);
 
 	const unmount = () => {
@@ -74,27 +75,37 @@ function setupContainer(
 	baseElement?: HTMLElement,
 	container?: HTMLElement,
 ): { container: HTMLElement; baseElement: HTMLElement } {
+	console.log("setupContainer inputs", { baseElement, container });
 	if (!baseElement) {
+		console.log("setupContainer -- baseElement is undefined");
 		baseElement = document.body;
 	}
 
+	console.log("setupContainer -- calling document.createElement");
 	if (!container) {
 		container = baseElement.appendChild(document.createElement("div"));
 	}
 
+	console.log("setupContainer -- returning");
 	return { container, baseElement };
 }
 
-export function render(
+export async function render(
 	ui: JSXOutput,
 	{ container, baseElement }: RenderOptions = {},
-): RenderResult {
+): Promise<RenderResult> {
+	console.log("render -- calling csrQwikLoader");
 	csrQwikLoader();
 
+	console.log("render -- calling setupContainer");
 	const setup = setupContainer(baseElement, container);
-	qwikRender(setup.container, ui);
-
-	return createRenderResult(setup.container, setup.baseElement);
+	console.log("setupContainer result", setup);
+	console.log("render -- calling qwikRender");
+	await qwikRender(setup.container, ui);
+	console.log("render -- calling createRenderResult");
+	const renderResult = createRenderResult(setup.container, setup.baseElement);
+	console.log("renderResult", renderResult);
+	return renderResult;
 }
 
 function setHTMLWithScripts(container: HTMLElement, html: string) {
