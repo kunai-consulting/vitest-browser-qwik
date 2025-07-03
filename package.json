@@ -22,6 +22,7 @@
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": "./dist/index.js",
+		"./pure": "./dist/pure.js",
 		"./package.json": "./package.json"
 	},
 	"publishConfig": {
@@ -34,8 +35,8 @@
 		"fix": "pnpm lint && pnpm format",
 		"format": "biome format --write .",
 		"lint": "biome check --write --unsafe .",
-		"build": "tsdown",
-		"dev": "tsdown --watch",
+		"build": "tsup",
+		"dev": "tsup --watch",
 		"test": "vitest",
 		"test:ssr-plugin": "vitest --config vitest.ssr-plugin.config.ts",
 		"typecheck": "tsc --noEmit",
@@ -46,6 +47,7 @@
 		"@biomejs/biome": "2.0.0",
 		"@builder.io/qwik": "1.14.1",
 		"@oxc-project/types": "^0.73.2",
+		"@playwright/test": "see flake.nix",
 		"@types/node": "^22.15.17",
 		"@vitest/browser": "^3.2.4",
 		"bumpp": "^10.1.0",
@@ -53,8 +55,7 @@
 		"oxc-parser": "^0.73.2",
 		"oxc-resolver": "^11.2.0",
 		"oxc-walker": "^0.3.0",
-		"@playwright/test": "see flake.nix",
-		"tsdown": "^0.11.9",
+		"tsup": "^8.5.0",
 		"tsx": "^4.19.4",
 		"typescript": "^5.8.3",
 		"vitest": "^3.1.3"
