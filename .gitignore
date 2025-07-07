@@ -1,7 +1,9 @@
 node_modules
 dist
+test/__screenshots__
 
 *.log
 .DS_Store
 .eslintcache
 .direnv
+.idea
