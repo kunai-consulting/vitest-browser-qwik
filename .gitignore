@@ -7,3 +7,4 @@ test/__screenshots__
 .eslintcache
 .direnv
 .idea
+.git-credentials
