@@ -113,6 +113,10 @@ test('renders with custom container', async () => {
 - **SSR Context**: `renderSSR` executes components in a Node.js context separate from your test files, providing true server-side rendering simulation
 - **Same Interface**: Both CSR and SSR provide the same testing interface, making it easy to test both rendering modes
 
+## Compatibility
+In testing, we have observed render issues with Vite 5.x. We recommend using Vite 6+. Qwik 1 currently specifies Vite 5.x,
+but Vite 6.x should work as well.
+
 ## Limitations
 
 - For `renderSSR` you must always import the component from another file, local components are not supported. This is because this would require importing the vitest context, or moving local components into separate files dynamically, which involves a lot of unwanted complexity.
