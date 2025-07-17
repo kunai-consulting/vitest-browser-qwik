@@ -267,7 +267,7 @@ const renderSSRCommand: ComponentFormat = async (
 };
 
 // Vite plugin that transforms renderSSR(<Component />) calls to commands.renderSSR() calls
-export function createSSRTransformPlugin(): Plugin {
+export function testSSR(): Plugin {
 	return {
 		name: "vitest:ssr-transform",
 		enforce: "pre",

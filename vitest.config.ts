@@ -1,13 +1,13 @@
 import { qwikVite, symbolMapper } from "@builder.io/qwik/optimizer";
 import { register as handleTSXImports } from "tsx/esm/api";
 import { defineConfig } from "vitest/config";
-import { createSSRTransformPlugin } from "./src/ssr-plugin";
+import { testSSR } from "./src/ssr-plugin";
 
 handleTSXImports();
 
 export default defineConfig({
 	plugins: [
-		createSSRTransformPlugin(),
+		testSSR(),
 		qwikVite({
 			devTools: {
 				clickToSource: ["Alt"],
