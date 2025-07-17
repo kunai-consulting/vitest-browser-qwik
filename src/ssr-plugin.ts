@@ -14,6 +14,7 @@ import type {
 	VariableDeclarator,
 } from "@oxc-project/types";
 import type { Plugin } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
 
 // Helper to safely traverse AST children
 function traverseChildren(
@@ -205,6 +206,66 @@ function hasCommandsImport(node: Node): boolean {
 	);
 }
 
+type ComponentFormat = BrowserCommand<
+	[
+		componentPath: string,
+		componentName: string,
+		props?: Record<string, unknown>,
+	]
+>;
+
+const renderSSRCommand: ComponentFormat = async (
+	ctx,
+	componentPath: string,
+	componentName: string,
+	props: Record<string, unknown> = {},
+) => {
+	try {
+		const projectRoot = process.cwd();
+		const absoluteComponentPath = resolve(projectRoot, componentPath);
+
+		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
+
+		const componentModule = await viteServer.ssrLoadModule(
+			absoluteComponentPath,
+		);
+		const Component = componentModule[componentName];
+
+		if (!Component) {
+			throw new Error(
+				`Component "${componentName}" not found in ${absoluteComponentPath}`,
+			);
+		}
+
+		const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+		const { jsx } = qwikModule;
+		const jsxElement = jsx(Component, props);
+
+		const serverModule = await viteServer.ssrLoadModule(
+			"@builder.io/qwik/server",
+		);
+		const { renderToString } = serverModule;
+
+		const result = await renderToString(jsxElement, {
+			containerTagName: "div",
+			base: "/",
+			qwikLoader: { include: "always" },
+			symbolMapper: globalThis.qwikSymbolMapper,
+		});
+
+		return { html: result.html };
+	} catch (error) {
+		console.error("SSR Command Error:", error);
+		throw error;
+	}
+};
+
 // Vite plugin that transforms renderSSR(<Component />) calls to commands.renderSSR() calls
 export function createSSRTransformPlugin(): Plugin {
 	return {
@@ -367,6 +428,15 @@ export function createSSRTransformPlugin(): Plugin {
 			}
 
 			return null;
+		},
+		// Add the renderSSR command
+		configResolved(config) {
+			if (config.test?.browser?.enabled) {
+				config.test.browser.commands = {
+					...config.test.browser.commands,
+					renderSSR: renderSSRCommand,
+				};
+			}
 		},
 	};
 }
