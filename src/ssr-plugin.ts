@@ -15,6 +15,7 @@ import type {
 } from "@oxc-project/types";
 import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
+import { symbolMapper } from "@builder.io/qwik/optimizer";
 
 // Helper to safely traverse AST children
 function traverseChildren(
@@ -431,6 +432,8 @@ export function testSSR(): Plugin {
 		},
 		// Add the renderSSR command
 		configResolved(config) {
+			globalThis.qwikSymbolMapper = symbolMapper;
+
 			if (config.test?.browser?.enabled) {
 				config.test.browser.commands = {
 					...config.test.browser.commands,

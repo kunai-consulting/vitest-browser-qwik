@@ -13,12 +13,6 @@ export default defineConfig({
 				clickToSource: ["Alt"],
 			},
 		}),
-		{
-			name: "resolve-qwik-symbol-mapper",
-			configResolved() {
-				globalThis.qwikSymbolMapper = symbolMapper;
-			},
-		},
 	],
 	test: {
 		browser: {
