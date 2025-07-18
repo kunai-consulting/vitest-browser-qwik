@@ -54,6 +54,10 @@
 		"release": "bumpp && pnpm publish",
 		"prepublishOnly": "pnpm run build"
 	},
+	"dependencies": {
+		"magic-string": "^0.30.17",
+		"oxc-parser": "^0.73.2"
+	},
 	"peerDependencies": {
 		"@builder.io/qwik": "^1.14.1",
 		"@vitest/browser": "^3.2.4",
@@ -68,8 +72,6 @@
 		"@types/node": "^22.15.17",
 		"@vitest/browser": "^3.2.4",
 		"bumpp": "^10.1.0",
-		"magic-string": "^0.30.17",
-		"oxc-parser": "^0.73.2",
 		"oxc-resolver": "^11.2.0",
 		"oxc-walker": "^0.3.0",
 		"tsdown": "^0.11.9",
@@ -82,5 +84,5 @@
 			"@playwright/test": "1.52.0",
 			"playwright": "1.52.0"
 		}
-	}
+  }
 }

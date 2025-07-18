@@ -413,7 +413,7 @@ export function testSSR(): Plugin {
 					if (lastImportEnd > 0) {
 						s.appendLeft(
 							lastImportEnd,
-							'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "../src";',
+							'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "vitest-browser-qwik";',
 						);
 					}
 				}
