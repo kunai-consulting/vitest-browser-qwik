@@ -1,4 +1,5 @@
 import { dirname, relative, resolve } from "node:path";
+import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type {
 	BindingIdentifier,
 	CallExpression,
@@ -15,7 +16,6 @@ import type {
 } from "@oxc-project/types";
 import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
-import { symbolMapper } from "@builder.io/qwik/optimizer";
 
 // Helper to safely traverse AST children
 function traverseChildren(
