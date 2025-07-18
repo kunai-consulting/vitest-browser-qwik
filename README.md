@@ -5,7 +5,7 @@ A modern testing setup demonstrating browser-based testing for Qwik components u
 ## Getting Started
 
 ```bash
-pnpm add vitest-browser-qwik
+npm install -D vitest-browser-qwik
 ```
 
 ## Core Features
