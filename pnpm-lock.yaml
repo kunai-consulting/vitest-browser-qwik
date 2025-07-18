@@ -12,6 +12,12 @@ importers:
 
   .:
     dependencies:
+      magic-string:
+        specifier: ^0.30.17
+        version: 0.30.17
+      oxc-parser:
+        specifier: ^0.73.2
+        version: 0.73.2
       vite:
         specifier: '>=6.3.5'
         version: 6.3.5(@types/node@22.15.32)(jiti@2.4.2)(tsx@4.20.3)(yaml@2.8.0)
@@ -37,12 +43,6 @@ importers:
       bumpp:
         specifier: ^10.1.0
         version: 10.2.0
-      magic-string:
-        specifier: ^0.30.17
-        version: 0.30.17
-      oxc-parser:
-        specifier: ^0.73.2
-        version: 0.73.2
       oxc-resolver:
         specifier: ^11.2.0
         version: 11.2.0
