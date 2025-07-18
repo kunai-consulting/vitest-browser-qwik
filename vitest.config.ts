@@ -1,4 +1,4 @@
-import { qwikVite, symbolMapper } from "@builder.io/qwik/optimizer";
+import { qwikVite } from "@builder.io/qwik/optimizer";
 import { register as handleTSXImports } from "tsx/esm/api";
 import { defineConfig } from "vitest/config";
 import { testSSR } from "./src/ssr-plugin";

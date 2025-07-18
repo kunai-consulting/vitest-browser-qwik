@@ -30,6 +30,10 @@
 		"./pure": {
 			"types": "./dist/pure.d.ts",
 			"default": "./dist/pure.js"
+		},
+		"./ssr-plugin": {
+			"types": "./dist/ssr-plugin.d.ts",
+			"default": "./dist/ssr-plugin.js"
 		}
 	},
 	"publishConfig": {
