@@ -1,9 +1,4 @@
-import {
-	component$,
-	isServer,
-	useSignal,
-	useTask$,
-} from "@builder.io/qwik";
+import { component$, isServer, useSignal, useTask$ } from "@builder.io/qwik";
 
 export const Counter = component$<{ initialCount: number }>(
 	({ initialCount = 0 }) => {

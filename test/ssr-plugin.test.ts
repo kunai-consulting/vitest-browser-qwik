@@ -7,7 +7,7 @@ type TransformFunction = (
 	code: string;
 }>;
 
-// Mock the createSSRTransformPlugin function for testing
+// Mock the testSSR function for testing
 describe("SSR Transform Plugin", () => {
 	// We'll test the plugin functionality by calling it directly with mock data
 	// rather than importing the entire plugin which has Node.js dependencies
@@ -15,8 +15,8 @@ describe("SSR Transform Plugin", () => {
 	describe("semantic analysis detection", () => {
 		it("should detect direct renderSSR calls", async () => {
 			// Import the plugin dynamically to avoid Node.js import issues
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -34,8 +34,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should detect aliased renderSSR imports", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -56,8 +56,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should detect variable aliases", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -79,8 +79,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should detect default imports with renderSSR-like names", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -97,8 +97,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should NOT transform when renderSSR is not actually called", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -118,8 +118,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should not detect files without renderSSR calls", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -136,8 +136,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should not detect renderSSR in comments or strings", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -154,8 +154,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle malformed code gracefully", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -174,8 +174,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should skip non-test files", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -191,8 +191,8 @@ describe("SSR Transform Plugin", () => {
 
 	describe("transformation functionality", () => {
 		it("should transform renderSSR calls with components", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -215,8 +215,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle components without props", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -233,13 +233,13 @@ describe("SSR Transform Plugin", () => {
 			expect(result.code).toContain('"HelloWorld"');
 			// Should not have props parameter when no props
 			expect(result.code).toContain(
-				'renderSSR("./../../../../../test/fixtures/HelloWorld.tsx", "HelloWorld")',
+				'renderSSR("./../../../../test/fixtures/HelloWorld.tsx", "HelloWorld")',
 			);
 		});
 
 		it("should handle string literal props", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -256,8 +256,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle multiple renderSSR calls", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -278,8 +278,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should not add commands import if already present", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -301,8 +301,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle absolute imports", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -320,8 +320,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should preserve file extensions when present", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -341,8 +341,8 @@ describe("SSR Transform Plugin", () => {
 
 	describe("edge cases", () => {
 		it("should handle missing component imports gracefully", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -357,8 +357,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle complex prop expressions", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -377,8 +377,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle nested JSX elements", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -402,8 +402,8 @@ describe("SSR Transform Plugin", () => {
 
 	describe("transformation correctness", () => {
 		it("should properly transform with real component imports", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			// Use a more realistic test file path and imports
@@ -435,8 +435,8 @@ describe("SSR Transform Plugin", () => {
 
 	describe("complex JSX expressions", () => {
 		it("should handle array expressions", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -457,8 +457,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle object expressions", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -479,8 +479,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle variable references", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -502,8 +502,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle function calls", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -523,8 +523,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle complex expressions", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -554,8 +554,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle spread syntax", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
@@ -576,8 +576,8 @@ describe("SSR Transform Plugin", () => {
 		});
 
 		it("should handle mixed prop types", async () => {
-			const { createSSRTransformPlugin } = await import("../src/ssr-plugin");
-			const plugin = createSSRTransformPlugin();
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
