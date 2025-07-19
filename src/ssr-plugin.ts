@@ -215,6 +215,15 @@ type ComponentFormat = BrowserCommand<
 	]
 >;
 
+type LocalComponentFormat = BrowserCommand<
+	[
+		testFilePath: string,
+		componentName: string,
+		allLocalComponents: string[],
+		props?: Record<string, unknown>,
+	]
+>;
+
 const renderSSRCommand: ComponentFormat = async (
 	ctx,
 	componentPath: string,
@@ -267,6 +276,131 @@ const renderSSRCommand: ComponentFormat = async (
 	}
 };
 
+const renderSSRLocalCommand: LocalComponentFormat = async (
+	ctx,
+	testFilePath: string,
+	componentName: string,
+	allLocalComponents: string[],
+	props: Record<string, unknown> = {},
+) => {
+	try {
+		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
+
+		// Create a modified version of the test file without vitest imports
+		const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+
+		const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.tsx`;
+		const tempFilePath = join(tmpdir(), tempFileName);
+
+		try {
+			// Read the original test file
+			const originalContent = readFileSync(testFilePath, "utf8");
+
+			// Use oxc to parse and remove vitest-related imports and test functions
+			const { parseSync } = await import("oxc-parser");
+			const MagicString = (await import("magic-string")).default;
+
+			const ast = parseSync(testFilePath, originalContent);
+			const s = new MagicString(originalContent);
+
+			function cleanTestFile(node: Node): undefined {
+				if (!node || typeof node !== "object") return;
+
+				// Remove vitest imports
+				if (node.type === "ImportDeclaration") {
+					const importDecl = node as ImportDeclaration;
+					const source = importDecl.source?.value;
+					if (source === "vitest" || source?.includes("@vitest/")) {
+						const spanNode = node as Node & Span;
+						s.remove(spanNode.start, spanNode.end);
+					}
+				}
+
+				// Remove test function calls (test, describe, it)
+				if (node.type === "ExpressionStatement") {
+					const exprStmt = node as any;
+					if (exprStmt.expression?.type === "CallExpression") {
+						const callExpr = exprStmt.expression as CallExpression;
+						if (callExpr.callee.type === "Identifier") {
+							const calleeName = callExpr.callee.name;
+							if (
+								calleeName === "test" ||
+								calleeName === "describe" ||
+								calleeName === "it"
+							) {
+								const spanNode = node as Node & Span;
+								s.remove(spanNode.start, spanNode.end);
+							}
+						}
+					}
+				}
+
+				// Recursively clean children
+				traverseChildren(node, cleanTestFile);
+				return undefined;
+			}
+
+			cleanTestFile(ast as unknown as Node);
+
+			// Add export statements for local components
+			let cleanedContent = s.toString();
+			if (allLocalComponents.length > 0) {
+				const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${allLocalComponents.join(", ")} };`;
+				cleanedContent += exportStatement;
+			}
+
+			// Write the modified content to temp file
+			writeFileSync(tempFilePath, cleanedContent, "utf8");
+
+			// Import the component from the modified test file
+			const componentModule = await viteServer.ssrLoadModule(tempFilePath);
+			const Component = componentModule[componentName];
+
+			if (!Component) {
+				throw new Error(
+					`Local component "${componentName}" not found in ${testFilePath}. Available exports: ${Object.keys(componentModule).join(", ")}`,
+				);
+			}
+
+			const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+			const { jsx } = qwikModule;
+			const jsxElement = jsx(Component, props);
+
+			const serverModule = await viteServer.ssrLoadModule(
+				"@builder.io/qwik/server",
+			);
+			const { renderToString } = serverModule;
+
+			const result = await renderToString(jsxElement, {
+				containerTagName: "div",
+				base: "/",
+				qwikLoader: { include: "always" },
+				symbolMapper: globalThis.qwikSymbolMapper,
+			});
+
+			return { html: result.html };
+		} finally {
+			// Clean up temporary file
+			try {
+				unlinkSync(tempFilePath);
+			} catch (cleanupError) {
+				console.warn("Failed to clean up temporary file:", cleanupError);
+			}
+		}
+	} catch (error) {
+		console.error("SSR Local Command Error:", error);
+		throw error;
+	}
+};
+
 // Vite plugin that transforms renderSSR(<Component />) calls to commands.renderSSR() calls
 export function testSSR(): Plugin {
 	return {
@@ -285,6 +419,8 @@ export function testSSR(): Plugin {
 				const s = new MagicString(code);
 
 				const componentImports = new Map<string, string>();
+				const localComponents = new Map<string, string>(); // componentName -> componentCode
+
 				const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 				let hasExistingCommandsImport = false;
 
@@ -337,6 +473,32 @@ export function testSSR(): Plugin {
 						hasExistingCommandsImport = true;
 					}
 
+					// Detect local component definitions and collect all variable declarations
+					if (node.type === "VariableDeclarator") {
+						const varDecl = node as VariableDeclarator;
+						if (varDecl.id.type === "Identifier") {
+							const bindingId = varDecl.id as BindingIdentifier;
+							const variableName = bindingId.name;
+
+							// Check if it's a component definition
+							if (varDecl.init?.type === "CallExpression") {
+								const callExpr = varDecl.init as CallExpression;
+								if (
+									callExpr.callee.type === "Identifier" &&
+									callExpr.callee.name === "component$"
+								) {
+									// Extract the full variable declaration
+									const spanNode = node as Node & Span;
+									const fullDeclaration = code.slice(
+										spanNode.start,
+										spanNode.end,
+									);
+									localComponents.set(variableName, fullDeclaration);
+								}
+							}
+						}
+					}
+
 					// Transform renderSSR calls
 					if (node.type === "CallExpression") {
 						const callExpr = node as CallExpression;
@@ -349,36 +511,57 @@ export function testSSR(): Plugin {
 								const jsxElement = jsxArg as JSXElement;
 								if (jsxElement.openingElement?.name?.type === "JSXIdentifier") {
 									const componentName = jsxElement.openingElement.name.name;
-									const componentImportPath =
-										componentImports.get(componentName);
-									if (componentImportPath) {
-										const componentPath = resolveComponentPath(
-											componentImportPath,
-											id,
-										);
-										const props = extractPropsFromJSX(
-											jsxElement.openingElement.attributes || [],
-											code,
-										);
+									const props = extractPropsFromJSX(
+										jsxElement.openingElement.attributes || [],
+										code,
+									);
 
-										// Generate props object with proper JavaScript expressions
-										let propsStr = "";
-										if (Object.keys(props).length > 0) {
-											const propsEntries = Object.entries(props).map(
-												([key, value]) => {
-													return `${JSON.stringify(key)}: ${value}`;
-												},
-											);
-											propsStr = `, { ${propsEntries.join(", ")} }`;
-										}
+									// Generate props object with proper JavaScript expressions
+									let propsStr = "";
+									if (Object.keys(props).length > 0) {
+										const propsEntries = Object.entries(props).map(
+											([key, value]) => {
+												return `${JSON.stringify(key)}: ${value}`;
+											},
+										);
+										propsStr = `, { ${propsEntries.join(", ")} }`;
+									}
 
+									// Check if it's a local component first
+									const localComponentCode = localComponents.get(componentName);
+									if (localComponentCode) {
+										// For local components, import from the original test file with all local component names
+										const allLocalComponentNames = Array.from(
+											localComponents.keys(),
+										);
+										const localComponentsArray = JSON.stringify(
+											allLocalComponentNames,
+										);
 										const replacement = `(async () => {
-											const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
+											const { html } = await commands.renderSSRLocal("${id}", "${componentName}", ${localComponentsArray}${propsStr});
 											return renderServerHTML(html);
 										})()`;
 
 										const spanNode = node as Node & Span;
 										s.overwrite(spanNode.start, spanNode.end, replacement);
+									} else {
+										// Check for imported components
+										const componentImportPath =
+											componentImports.get(componentName);
+										if (componentImportPath) {
+											const componentPath = resolveComponentPath(
+												componentImportPath,
+												id,
+											);
+
+											const replacement = `(async () => {
+												const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
+												return renderServerHTML(html);
+											})()`;
+
+											const spanNode = node as Node & Span;
+											s.overwrite(spanNode.start, spanNode.end, replacement);
+										}
 									}
 								}
 							}
@@ -392,29 +575,38 @@ export function testSSR(): Plugin {
 
 				walkForTransformation(ast as unknown as Node);
 
-				// Add commands import if needed and we made changes
-				if (!hasExistingCommandsImport && s.hasChanged()) {
-					let lastImportEnd = 0;
+				// Add commands import and export local components if needed
+				if (s.hasChanged()) {
+					if (!hasExistingCommandsImport) {
+						let lastImportEnd = 0;
 
-					function findLastImport(node: Node): undefined {
-						if (!node || typeof node !== "object") return;
+						function findLastImport(node: Node): undefined {
+							if (!node || typeof node !== "object") return;
 
-						if (node.type === "ImportDeclaration") {
-							const spanNode = node as Node & Span;
-							lastImportEnd = Math.max(lastImportEnd, spanNode.end);
+							if (node.type === "ImportDeclaration") {
+								const spanNode = node as Node & Span;
+								lastImportEnd = Math.max(lastImportEnd, spanNode.end);
+							}
+
+							traverseChildren(node, findLastImport);
+							return undefined;
 						}
 
-						traverseChildren(node, findLastImport);
-						return undefined;
+						findLastImport(ast as unknown as Node);
+
+						if (lastImportEnd > 0) {
+							s.appendLeft(
+								lastImportEnd,
+								'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "vitest-browser-qwik";',
+							);
+						}
 					}
 
-					findLastImport(ast as unknown as Node);
-
-					if (lastImportEnd > 0) {
-						s.appendLeft(
-							lastImportEnd,
-							'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "vitest-browser-qwik";',
-						);
+					// Add exports for local components
+					if (localComponents.size > 0) {
+						const localComponentNames = Array.from(localComponents.keys());
+						const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${localComponentNames.join(", ")} };`;
+						s.append(exportStatement);
 					}
 				}
 
@@ -430,7 +622,7 @@ export function testSSR(): Plugin {
 
 			return null;
 		},
-		// Add the renderSSR command
+		// Add the renderSSR commands
 		configResolved(config) {
 			globalThis.qwikSymbolMapper = symbolMapper;
 
@@ -438,6 +630,7 @@ export function testSSR(): Plugin {
 				config.test.browser.commands = {
 					...config.test.browser.commands,
 					renderSSR: renderSSRCommand,
+					renderSSRLocal: renderSSRLocalCommand,
 				};
 			}
 		},

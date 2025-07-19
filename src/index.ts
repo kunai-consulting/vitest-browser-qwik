@@ -1,12 +1,14 @@
 import type { JSXOutput } from "@builder.io/qwik";
 import { page } from "@vitest/browser/context";
 import { beforeEach } from "vitest";
-import { cleanup, render, renderServerHTML } from "./pure";
+import { cleanup, type RenderResult, render, renderServerHTML } from "./pure";
 
 /** This is replaced with actual code by the ssr-plugin.ts transform */
-export declare function renderSSR(
-	jsxNode: JSXOutput,
-): Promise<import("./pure").RenderResult>;
+export function renderSSR(jsxNode: JSXOutput): Promise<RenderResult> {
+	throw new Error(
+		`renderSSR function should have been transformed by the SSR plugin. Passed JSX Node String: ${jsxNode?.toString()}`,
+	);
+}
 
 export type { RenderResult, SSRRenderOptions } from "./pure";
 export {
