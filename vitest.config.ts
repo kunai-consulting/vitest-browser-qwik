@@ -19,7 +19,7 @@ export default defineConfig({
 			enabled: true,
 			provider: "playwright",
 			instances: [{ browser: "chromium" }],
-			headless: true,
+			headless: false,
 		},
 		exclude: ["node_modules", "test/ssr-plugin.test.ts"],
 	},
