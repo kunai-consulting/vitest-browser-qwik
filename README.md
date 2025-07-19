@@ -15,6 +15,27 @@ npm install -D vitest-browser-qwik
 - **`renderHook`** - Hook testing utilities (currently only CSR supported)
 - All functions are async for predictable testing behavior
 
+## Vitest Config Setup
+
+```tsx
+import { defineConfig } from 'vitest/config'
+import { qwikVite } from '@builder.io/qwik/optimizer'
+
+// optional, run the tests in SSR mode
+import { testSSR } from 'vitest-browser-qwik/ssr-plugin'
+
+export default defineConfig({
+  plugins: [testSSR(), qwikVite()],
+  test: {
+    browser: {
+      enabled: true,
+      provider: 'playwright',
+      instances: [{ browser: 'chromium' }]
+    },
+  },
+})
+```
+
 ### Client-Side Rendering Example
 
 ```tsx
