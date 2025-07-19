@@ -168,7 +168,7 @@ export async function renderHook<Result>(
 	};
 }
 
-export function cleanup(): void {
+export async function cleanup(): Promise<void> {
 	mountedContainers.forEach((container) => {
 		container.innerHTML = "";
 		if (container.parentNode === document.body) {
