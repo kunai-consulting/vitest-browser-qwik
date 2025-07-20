@@ -252,7 +252,7 @@ async function renderComponentToSSR(
 	Component: Component,
 	props: Record<string, unknown> = {},
 ): Promise<{ html: string }> {
-	const viteServer = ctx.project.ctx.vite;
+	const viteServer = ctx.project.vite;
 
 	// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
 	for (const [key, value] of Object.entries(viteServer.config.env)) {
