@@ -244,16 +244,23 @@ async function renderComponentToHTML(
 	const serverModule = await viteServer.ssrLoadModule(
 		"@builder.io/qwik/server",
 	);
-	const { renderToString } = serverModule;
+	const { renderToStream } = serverModule;
 
-	const result = await renderToString(jsxElement, {
+	let html = "";
+
+	await renderToStream(jsxElement, {
 		containerTagName: "div",
 		base: "/",
 		qwikLoader: { include: "always" },
 		symbolMapper: globalThis.qwikSymbolMapper,
+		stream: {
+			write(chunk: string) {
+				html += chunk;
+			},
+		},
 	});
 
-	return { html: result.html };
+	return { html };
 }
 
 // Shared logic for cleaning test files to extract local components
