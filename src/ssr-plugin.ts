@@ -47,6 +47,7 @@ const renderSSRCommand: ComponentFormat = async (
 	const absoluteComponentPath = resolve(projectRoot, componentPath);
 	const viteServer = ctx.project.vite;
 
+	// it does not replace env vars in the test file, so we need to do it manually
 	if (!viteServer.config.define) return;
 	for (const [key, value] of Object.entries(viteServer.config.env)) {
 		viteServer.config.define[`__vite_ssr_import_meta__.env.${key}`] =
@@ -74,6 +75,7 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 ) => {
 	const viteServer = ctx.project.vite;
 
+	// it does not replace env vars in the test file, so we need to do it manually
 	if (!viteServer.config.define) return;
 	for (const [key, value] of Object.entries(viteServer.config.env)) {
 		viteServer.config.define[`__vite_ssr_import_meta__.env.${key}`] =
@@ -84,6 +86,7 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 	const { dirname, join } = await import("node:path");
 
 	const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).slice(2, 11)}.tsx`;
+	// temp file inthe same folder to support relative imports
 	const testFileDir = dirname(testFilePath);
 	const tempFilePath = join(testFileDir, tempFileName);
 
@@ -136,7 +139,7 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 
 		if (!Component) {
 			throw new Error(
-				`Local component "${componentName}" not found in ${testFilePath}. Available exports: ${Object.keys(componentModule).join(", ")}`,
+				`[vitest-browser-qwik]: Local component "${componentName}" not found in ${testFilePath}. Available exports: ${Object.keys(componentModule).join(", ")}`,
 			);
 		}
 
@@ -315,7 +318,6 @@ export function testSSR(): Plugin {
 
 			return null;
 		},
-
 		configResolved(config) {
 			globalThis.qwikSymbolMapper = symbolMapper;
 
