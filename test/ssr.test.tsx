@@ -49,19 +49,24 @@ test("Incrementing count from local component", async () => {
 const externalMessage = "Hello from external scope!";
 const externalValue = 99;
 
-const ComponentWithExternalRefs = component$(() => {
+const ComponentWithExternalRefs = component$((props: { randomNum: number }) => {
 	const count = useSignal(externalValue);
 	return (
 		<div>
 			<p>{externalMessage}</p>
-			<span data-testid="count">Count: {count.value}</span>
+			<span data-testid="count">
+				Count: {count.value}, {props.randomNum}
+			</span>
 		</div>
 	);
 });
 
 test("Local component with external variable references", async () => {
-	const screen = await renderSSR(<ComponentWithExternalRefs />);
+	const screen = await renderSSR(
+		<ComponentWithExternalRefs randomNum={77192} />,
+	);
 
 	expect(screen.container.innerHTML).toContain("Hello from external scope!");
 	expect(screen.container.innerHTML).toContain("99");
+	expect(screen.container.innerHTML).toContain("77192");
 });
