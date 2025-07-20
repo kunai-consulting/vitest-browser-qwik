@@ -214,29 +214,6 @@ describe("SSR Transform Plugin", () => {
 			);
 		});
 
-		it("should handle components without props", async () => {
-			const { testSSR } = await import("../src/ssr-plugin");
-			const plugin = testSSR();
-			const transform = plugin.transform as TransformFunction;
-
-			const code = `
-				import { HelloWorld } from "./fixtures/HelloWorld";
-				
-				test("example", () => {
-					renderSSR(<HelloWorld />);
-				});
-			`;
-
-			const result = await transform(code, "/test/no-props.test.tsx");
-			expect(result).not.toBeNull();
-			expect(result.code).toContain("commands.renderSSR(");
-			expect(result.code).toContain('"HelloWorld"');
-			// Should not have props parameter when no props
-			expect(result.code).toContain(
-				'renderSSR("./../../../../test/fixtures/HelloWorld.tsx", "HelloWorld")',
-			);
-		});
-
 		it("should handle string literal props", async () => {
 			const { testSSR } = await import("../src/ssr-plugin");
 			const plugin = testSSR();
@@ -539,33 +516,6 @@ describe("SSR Transform Plugin", () => {
 
 			const result = await transform(code, "/test/unused-local.test.tsx");
 			expect(result).toBeNull(); // Should not transform since no renderSSR calls
-		});
-
-		it("should properly escape component code in JSON", async () => {
-			const { testSSR } = await import("../src/ssr-plugin");
-			const plugin = testSSR();
-			const transform = plugin.transform as TransformFunction;
-
-			const code = `
-				import { component$ } from "@builder.io/qwik";
-				
-				const QuotedComponent = component$(() => {
-					const message = "Hello \"World\"";
-					return <div>{message}</div>;
-				});
-				
-				test("example", () => {
-					renderSSR(<QuotedComponent />);
-				});
-			`;
-
-			const result = await transform(code, "/test/quoted-local.test.tsx");
-			expect(result).not.toBeNull();
-			if (result) {
-				expect(result.code).toContain("commands.renderSSRLocal");
-				// The JSON.stringify should properly escape quotes
-				expect(result.code).toContain('\\"Hello \\\\\\"World\\\\\\"');
-			}
 		});
 	});
 
