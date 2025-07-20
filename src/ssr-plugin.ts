@@ -3,7 +3,6 @@ import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type {
 	BindingIdentifier,
 	CallExpression,
-	ExpressionStatement,
 	ImportDeclaration,
 	ImportDefaultSpecifier,
 	ImportSpecifier,
@@ -15,10 +14,10 @@ import type {
 	Span,
 	VariableDeclarator,
 } from "@oxc-project/types";
-import type { ViteDevServer } from "vite";
 import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
+// Helper to safely traverse AST children
 function traverseChildren(
 	node: Node,
 	callback: (child: Node) => boolean | undefined,
@@ -38,6 +37,7 @@ function traverseChildren(
 	return false;
 }
 
+// Helper function to check if code contains renderSSR calls using semantic analysis
 async function hasRenderSSRCall(
 	code: string,
 	filename: string,
@@ -224,112 +224,6 @@ type LocalComponentFormat = BrowserCommand<
 	]
 >;
 
-// Shared rendering logic for both SSR commands
-async function renderComponentToHTML(
-	viteServer: ViteDevServer,
-	Component: unknown,
-	props: Record<string, unknown> = {},
-): Promise<{ html: string }> {
-	// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
-	for (const [key, value] of Object.entries(viteServer.config.env)) {
-		// biome-ignore lint/style/noNonNullAssertion: it's always defined
-		viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
-			JSON.stringify(value);
-	}
-
-	const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
-	const { jsx } = qwikModule;
-	const jsxElement = jsx(Component, props);
-
-	const serverModule = await viteServer.ssrLoadModule(
-		"@builder.io/qwik/server",
-	);
-	const { renderToStream } = serverModule;
-
-	const result = await renderToStream(jsxElement, {
-		containerTagName: "div",
-		base: "/",
-		qwikLoader: { include: "always" },
-		symbolMapper: globalThis.qwikSymbolMapper,
-	});
-
-	return { html: result.html };
-}
-
-// Shared logic for cleaning test files to extract local components
-async function createCleanedTestFile(
-	testFilePath: string,
-	allLocalComponents: string[],
-): Promise<string> {
-	const { readFileSync, writeFileSync } = await import("node:fs");
-	const { tmpdir } = await import("node:os");
-	const { join } = await import("node:path");
-
-	const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.tsx`;
-	const tempFilePath = join(tmpdir(), tempFileName);
-
-	// Read the original test file
-	const originalContent = readFileSync(testFilePath, "utf8");
-
-	// Use oxc to parse and remove vitest-related imports and test functions
-	const { parseSync } = await import("oxc-parser");
-	const MagicString = (await import("magic-string")).default;
-
-	const ast = parseSync(testFilePath, originalContent);
-	const s = new MagicString(originalContent);
-
-	function cleanTestFile(node: Node): undefined {
-		if (!node || typeof node !== "object") return;
-
-		// Remove vitest imports
-		if (node.type === "ImportDeclaration") {
-			const importDecl = node as ImportDeclaration;
-			const source = importDecl.source?.value;
-			if (source === "vitest" || source?.includes("@vitest/")) {
-				const spanNode = node as Node & Span;
-				s.remove(spanNode.start, spanNode.end);
-			}
-		}
-
-		// Remove test function calls (test, describe, it)
-		if (node.type === "ExpressionStatement") {
-			const exprStmt = node as ExpressionStatement;
-			if (exprStmt.expression?.type === "CallExpression") {
-				const callExpr = exprStmt.expression as CallExpression;
-				if (callExpr.callee.type === "Identifier") {
-					const calleeName = callExpr.callee.name;
-					if (
-						calleeName === "test" ||
-						calleeName === "describe" ||
-						calleeName === "it"
-					) {
-						const spanNode = node as Node & Span;
-						s.remove(spanNode.start, spanNode.end);
-					}
-				}
-			}
-		}
-
-		// Recursively clean children
-		traverseChildren(node, cleanTestFile);
-		return undefined;
-	}
-
-	cleanTestFile(ast as unknown as Node);
-
-	// Add export statements for local components
-	let cleanedContent = s.toString();
-	if (allLocalComponents.length > 0) {
-		const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${allLocalComponents.join(", ")} };`;
-		cleanedContent += exportStatement;
-	}
-
-	// Write the modified content to temp file
-	writeFileSync(tempFilePath, cleanedContent, "utf8");
-
-	return tempFilePath;
-}
-
 const renderSSRCommand: ComponentFormat = async (
 	ctx,
 	componentPath: string,
@@ -341,6 +235,13 @@ const renderSSRCommand: ComponentFormat = async (
 		const absoluteComponentPath = resolve(projectRoot, componentPath);
 
 		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
+
 		const componentModule = await viteServer.ssrLoadModule(
 			absoluteComponentPath,
 		);
@@ -352,7 +253,23 @@ const renderSSRCommand: ComponentFormat = async (
 			);
 		}
 
-		return await renderComponentToHTML(viteServer, Component, props);
+		const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+		const { jsx } = qwikModule;
+		const jsxElement = jsx(Component, props);
+
+		const serverModule = await viteServer.ssrLoadModule(
+			"@builder.io/qwik/server",
+		);
+		const { renderToString } = serverModule;
+
+		const result = await renderToString(jsxElement, {
+			containerTagName: "div",
+			base: "/",
+			qwikLoader: { include: "always" },
+			symbolMapper: globalThis.qwikSymbolMapper,
+		});
+
+		return { html: result.html };
 	} catch (error) {
 		console.error("SSR Command Error:", error);
 		throw error;
@@ -368,15 +285,81 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 ) => {
 	try {
 		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
 
-		// Create a cleaned version of the test file for SSR execution
-		const tempFilePath = await createCleanedTestFile(
-			testFilePath,
-			allLocalComponents,
-		);
-		const { unlinkSync } = await import("node:fs");
+		// Create a modified version of the test file without vitest imports
+		const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+
+		const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.tsx`;
+		const tempFilePath = join(tmpdir(), tempFileName);
 
 		try {
+			// Read the original test file
+			const originalContent = readFileSync(testFilePath, "utf8");
+
+			// Use oxc to parse and remove vitest-related imports and test functions
+			const { parseSync } = await import("oxc-parser");
+			const MagicString = (await import("magic-string")).default;
+
+			const ast = parseSync(testFilePath, originalContent);
+			const s = new MagicString(originalContent);
+
+			function cleanTestFile(node: Node): undefined {
+				if (!node || typeof node !== "object") return;
+
+				// Remove vitest imports
+				if (node.type === "ImportDeclaration") {
+					const importDecl = node as ImportDeclaration;
+					const source = importDecl.source?.value;
+					if (source === "vitest" || source?.includes("@vitest/")) {
+						const spanNode = node as Node & Span;
+						s.remove(spanNode.start, spanNode.end);
+					}
+				}
+
+				// Remove test function calls (test, describe, it)
+				if (node.type === "ExpressionStatement") {
+					const exprStmt = node as any;
+					if (exprStmt.expression?.type === "CallExpression") {
+						const callExpr = exprStmt.expression as CallExpression;
+						if (callExpr.callee.type === "Identifier") {
+							const calleeName = callExpr.callee.name;
+							if (
+								calleeName === "test" ||
+								calleeName === "describe" ||
+								calleeName === "it"
+							) {
+								const spanNode = node as Node & Span;
+								s.remove(spanNode.start, spanNode.end);
+							}
+						}
+					}
+				}
+
+				// Recursively clean children
+				traverseChildren(node, cleanTestFile);
+				return undefined;
+			}
+
+			cleanTestFile(ast as unknown as Node);
+
+			// Add export statements for local components
+			let cleanedContent = s.toString();
+			if (allLocalComponents.length > 0) {
+				const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${allLocalComponents.join(", ")} };`;
+				cleanedContent += exportStatement;
+			}
+
+			// Write the modified content to temp file
+			writeFileSync(tempFilePath, cleanedContent, "utf8");
+
 			// Import the component from the modified test file
 			const componentModule = await viteServer.ssrLoadModule(tempFilePath);
 			const Component = componentModule[componentName];
@@ -387,7 +370,23 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 				);
 			}
 
-			return await renderComponentToHTML(viteServer, Component, props);
+			const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+			const { jsx } = qwikModule;
+			const jsxElement = jsx(Component, props);
+
+			const serverModule = await viteServer.ssrLoadModule(
+				"@builder.io/qwik/server",
+			);
+			const { renderToString } = serverModule;
+
+			const result = await renderToString(jsxElement, {
+				containerTagName: "div",
+				base: "/",
+				qwikLoader: { include: "always" },
+				symbolMapper: globalThis.qwikSymbolMapper,
+			});
+
+			return { html: result.html };
 		} finally {
 			// Clean up temporary file
 			try {
