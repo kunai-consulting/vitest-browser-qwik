@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { symbolMapper } from "@builder.io/qwik/optimizer";
-import type { Node } from "@oxc-project/types";
+
 import MagicString from "magic-string";
 import { parseSync } from "oxc-parser";
 import type { Plugin } from "vitest/config";
@@ -92,11 +92,11 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 
 		// Create a modified version of the test file without vitest imports
 		const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
-		const { tmpdir } = await import("node:os");
-		const { join } = await import("node:path");
+		const { dirname, join } = await import("node:path");
 
-		const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.tsx`;
-		const tempFilePath = join(tmpdir(), tempFileName);
+		const tempFileName = `ssr-test-${Date.now()}-${Math.random().toString(36).slice(2, 11)}.tsx`;
+		const testFileDir = dirname(testFilePath);
+		const tempFilePath = join(testFileDir, tempFileName);
 
 		try {
 			// Read the original test file
@@ -189,7 +189,7 @@ export function testSSR(): Plugin {
 				const ast = parseSync(id, code);
 
 				// Check if this file has renderSSR calls using the parsed AST
-				if (!hasRenderSSRCallInAST(ast as unknown as Node, code)) {
+				if (!hasRenderSSRCallInAST(ast, code)) {
 					return null;
 				}
 

@@ -80,7 +80,7 @@ export function traverseChildren(
 	return false;
 }
 
-export function hasRenderSSRCallInAST(ast: Node, code: string): boolean {
+export function hasRenderSSRCallInAST(ast: unknown, code: string): boolean {
 	const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 	let hasRenderSSRCallInCode = false;
 
@@ -138,7 +138,7 @@ export function hasRenderSSRCallInAST(ast: Node, code: string): boolean {
 		return traverseChildren(node, walkForDetection);
 	}
 
-	walkForDetection(ast);
+	walkForDetection(ast as Node);
 
 	// If we have renderSSR calls, transform the code
 	// This handles both cases:
