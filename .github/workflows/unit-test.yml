@@ -1,4 +1,4 @@
-name: Unit Test
+name: Integration Tests
 
 on:
   push:
@@ -39,3 +39,6 @@ jobs:
 
       - name: Test
         run: pnpm run test
+
+      - name: SSR Plugin Tests
+        run: pnpm run test:ssr-plugin
