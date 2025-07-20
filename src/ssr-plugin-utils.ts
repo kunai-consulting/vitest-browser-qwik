@@ -24,7 +24,6 @@ const resolver = new ResolverFactory({
 	extensions: [".tsx", ".ts", ".jsx", ".js"],
 });
 
-// Type guards for better type safety
 export function isFunction(node: Node): node is OxcFunction {
 	const functionTypes: FunctionType[] = [
 		"FunctionDeclaration",
@@ -73,29 +72,28 @@ export function traverseChildren(
 					return true;
 				}
 			}
-		} else if (child && typeof child === "object") {
-			if (callback(child as Node)) return true;
+		} else if (child && typeof child === "object" && callback(child as Node)) {
+			return true;
 		}
 	}
 	return false;
 }
 
-export function hasRenderSSRCallInAST(ast: unknown, code: string): boolean {
+export function hasRenderSSRCallInAST(ast: Node, code: string): boolean {
 	const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 	let hasRenderSSRCallInCode = false;
 
 	function walkForDetection(node: Node): boolean {
 		if (!node || typeof node !== "object") return false;
 
-		// Track renderSSR imports and aliases
-		if (isImportDeclaration(node)) {
-			if (!node.source?.value || !node.specifiers) return false;
-
+		if (isImportDeclaration(node) && node.source?.value && node.specifiers) {
 			for (const spec of node.specifiers) {
 				if (spec.type === "ImportSpecifier") {
 					const importSpec = spec as ImportSpecifier;
-					if (importSpec.imported.type !== "Identifier") continue;
-					if (importSpec.imported.name === "renderSSR") {
+					if (
+						importSpec.imported.type === "Identifier" &&
+						importSpec.imported.name === "renderSSR"
+					) {
 						renderSSRIdentifiers.add(importSpec.local.name);
 					}
 				} else if (spec.type === "ImportDefaultSpecifier") {
@@ -107,47 +105,36 @@ export function hasRenderSSRCallInAST(ast: unknown, code: string): boolean {
 			}
 		}
 
-		// Track declared renderSSR functions (including TypeScript declares)
-		if (isFunction(node)) {
-			if (node.id?.name === "renderSSR") {
-				renderSSRIdentifiers.add("renderSSR");
-			}
+		if (isFunction(node) && node.id?.name === "renderSSR") {
+			renderSSRIdentifiers.add("renderSSR");
 		}
 
-		// Track variable aliases
 		if (isVariableDeclarator(node)) {
-			if (node.id.type !== "Identifier") return false;
-			if (node.init?.type !== "Identifier") return false;
-			if (!renderSSRIdentifiers.has(node.init.name)) return false;
-
-			const bindingId = node.id as BindingIdentifier;
-			renderSSRIdentifiers.add(bindingId.name);
-		}
-
-		// Check for renderSSR calls
-		if (isCallExpression(node)) {
-			if (node.callee.type === "Identifier") {
-				if (renderSSRIdentifiers.has(node.callee.name)) {
-					hasRenderSSRCallInCode = true;
-					return true;
-				}
+			if (
+				node.id.type === "Identifier" &&
+				node.init?.type === "Identifier" &&
+				renderSSRIdentifiers.has(node.init.name)
+			) {
+				const bindingId = node.id as BindingIdentifier;
+				renderSSRIdentifiers.add(bindingId.name);
 			}
 		}
 
-		// Recursively check children
+		if (
+			isCallExpression(node) &&
+			node.callee.type === "Identifier" &&
+			renderSSRIdentifiers.has(node.callee.name)
+		) {
+			hasRenderSSRCallInCode = true;
+			return true;
+		}
+
 		return traverseChildren(node, walkForDetection);
 	}
 
-	walkForDetection(ast as Node);
+	walkForDetection(ast);
 
-	// If we have renderSSR calls, transform the code
-	// This handles both cases:
-	// 1. Explicit imports/declares with calls
-	// 2. Direct renderSSR calls (common in tests)
-	const hasCallsInString = code.includes("renderSSR(");
-	const result = hasRenderSSRCallInCode || hasCallsInString;
-
-	return result;
+	return hasRenderSSRCallInCode || code.includes("renderSSR(");
 }
 
 export function extractPropsFromJSX(
@@ -160,20 +147,18 @@ export function extractPropsFromJSX(
 		if (attr.type !== "JSXAttribute") continue;
 
 		const jsxAttr = attr as JSXAttribute;
-		if (jsxAttr.name.type !== "JSXIdentifier") continue;
+		if (jsxAttr.name.type !== "JSXIdentifier" || !jsxAttr.value) continue;
 
 		const propName = jsxAttr.name.name;
-		if (!jsxAttr.value) continue;
 
-		if (isJSXExpressionContainer(jsxAttr.value)) {
-			// Extract the raw source code of the expression
-			if (jsxAttr.value.expression.type !== "JSXEmptyExpression") {
-				const exprSpan = jsxAttr.value.expression as Node & Span;
-				const expressionCode = sourceCode.slice(exprSpan.start, exprSpan.end);
-				props[propName] = expressionCode;
-			}
+		if (
+			isJSXExpressionContainer(jsxAttr.value) &&
+			jsxAttr.value.expression.type !== "JSXEmptyExpression"
+		) {
+			const exprSpan = jsxAttr.value.expression as Node & Span;
+			const expressionCode = sourceCode.slice(exprSpan.start, exprSpan.end);
+			props[propName] = expressionCode;
 		} else if (jsxAttr.value.type === "Literal") {
-			// For string literals, use the actual value
 			const literal = jsxAttr.value as { value: unknown };
 			props[propName] = JSON.stringify(literal.value);
 		}
@@ -191,19 +176,16 @@ function fallbackResolveComponentPath(
 	testFileId: string,
 ): string {
 	if (!importPath.startsWith(".")) {
-		// Absolute import, add extension if needed
 		return importPath.endsWith(".tsx") || importPath.endsWith(".ts")
 			? importPath
 			: `${importPath}.tsx`;
 	}
 
-	// Relative import - resolve relative to test file
 	const testFileDir = dirname(testFileId);
 	const resolvedPath = resolve(testFileDir, importPath);
 	const projectRoot = process.cwd();
 	let componentPath = `./${relative(projectRoot, resolvedPath)}`;
 
-	// Add extension if needed
 	if (!componentPath.endsWith(".tsx") && !componentPath.endsWith(".ts")) {
 		componentPath += ".tsx";
 	}
@@ -219,12 +201,9 @@ export function resolveComponentPath(
 	const result = resolver.sync(testFileDir, importPath);
 
 	if (result.error || !result.path) {
-		const errorMsg = result.error || "No path resolved";
-
 		console.warn(
-			`[oxc-resolver] Could not resolve "${importPath}" from "${testFileId}": ${errorMsg}. Using fallback resolution. If this is not a test file, this might be a bug.`,
+			`[oxc-resolver] Could not resolve "${importPath}" from "${testFileId}": ${result.error || "No path resolved"}. Using fallback resolution.`,
 		);
-
 		return fallbackResolveComponentPath(importPath, testFileId);
 	}
 
@@ -235,10 +214,13 @@ export function resolveComponentPath(
 }
 
 export function hasCommandsImport(node: Node): boolean {
-	if (!isImportDeclaration(node)) return false;
-
-	if (node.source?.value !== "@vitest/browser/context") return false;
-	if (!node.specifiers) return false;
+	if (
+		!isImportDeclaration(node) ||
+		node.source?.value !== "@vitest/browser/context" ||
+		!node.specifiers
+	) {
+		return false;
+	}
 
 	return node.specifiers.some(
 		(spec) =>
