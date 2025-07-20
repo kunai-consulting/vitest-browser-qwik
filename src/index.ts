@@ -1,12 +1,16 @@
-import type { JSXOutput } from "@builder.io/qwik";
+import type { JSXNode, JSXOutput } from "@builder.io/qwik";
 import { page } from "@vitest/browser/context";
 import { beforeEach } from "vitest";
 import { cleanup, type RenderResult, render, renderServerHTML } from "./pure";
 
-/** This is replaced with actual code by the ssr-plugin.ts transform */
 export function renderSSR(jsxNode: JSXOutput): Promise<RenderResult> {
+	const node = jsxNode as JSXNode;
+
 	throw new Error(
-		`renderSSR function should have been transformed by the SSR plugin. Passed JSX Node String: ${jsxNode?.toString()}`,
+		`[vitest-browser-qwik]: renderSSR function should have been transformed by the SSR plugin. JSX Node type: ${node.type}
+		
+		 Make sure the testSSR plugin is first in the plugins array in your vitest.config.ts file.
+		`,
 	);
 }
 
