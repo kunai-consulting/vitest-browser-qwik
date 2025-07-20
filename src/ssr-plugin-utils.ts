@@ -17,7 +17,12 @@ import type {
 	Span,
 	VariableDeclarator,
 } from "@oxc-project/types";
+import { ResolverFactory } from "oxc-resolver";
 import type { BrowserCommandContext } from "vitest/node";
+
+const resolver = new ResolverFactory({
+	extensions: [".tsx", ".ts", ".jsx", ".js"],
+});
 
 // Type guards for better type safety
 export function isFunction(node: Node): node is OxcFunction {
@@ -158,31 +163,6 @@ export async function hasRenderSSRCall(
 	}
 }
 
-export function resolveComponentPath(
-	importPath: string,
-	testFileId: string,
-): string {
-	if (!importPath.startsWith(".")) {
-		// Absolute import, add extension if needed
-		return importPath.endsWith(".tsx") || importPath.endsWith(".ts")
-			? importPath
-			: `${importPath}.tsx`;
-	}
-
-	// Relative import - resolve relative to test file
-	const testFileDir = dirname(testFileId);
-	const resolvedPath = resolve(testFileDir, importPath);
-	const projectRoot = process.cwd();
-	let componentPath = `./${relative(projectRoot, resolvedPath)}`;
-
-	// Add extension if needed
-	if (!componentPath.endsWith(".tsx") && !componentPath.endsWith(".ts")) {
-		componentPath += ".tsx";
-	}
-
-	return componentPath;
-}
-
 export function extractPropsFromJSX(
 	attributes: JSXAttributeItem[],
 	sourceCode: string,
@@ -219,6 +199,54 @@ export function isTestFile(id: string): boolean {
 	return id.includes(".test.") || id.includes(".spec.");
 }
 
+function fallbackResolveComponentPath(
+	importPath: string,
+	testFileId: string,
+): string {
+	if (!importPath.startsWith(".")) {
+		// Absolute import, add extension if needed
+		return importPath.endsWith(".tsx") || importPath.endsWith(".ts")
+			? importPath
+			: `${importPath}.tsx`;
+	}
+
+	// Relative import - resolve relative to test file
+	const testFileDir = dirname(testFileId);
+	const resolvedPath = resolve(testFileDir, importPath);
+	const projectRoot = process.cwd();
+	let componentPath = `./${relative(projectRoot, resolvedPath)}`;
+
+	// Add extension if needed
+	if (!componentPath.endsWith(".tsx") && !componentPath.endsWith(".ts")) {
+		componentPath += ".tsx";
+	}
+
+	return componentPath;
+}
+
+export function resolveComponentPath(
+	importPath: string,
+	testFileId: string,
+): string {
+	const testFileDir = dirname(testFileId);
+	const result = resolver.sync(testFileDir, importPath);
+
+	if (result.error || !result.path) {
+		const errorMsg = result.error || "No path resolved";
+
+		console.warn(
+			`[oxc-resolver] Could not resolve "${importPath}" from "${testFileId}": ${errorMsg}. Using fallback resolution. If this is not a test file, this might be a bug.`,
+		);
+
+		return fallbackResolveComponentPath(importPath, testFileId);
+	}
+
+	const projectRoot = process.cwd();
+	const relativePath = relative(projectRoot, result.path);
+
+	return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
+}
+
 export function hasCommandsImport(node: Node): boolean {
 	if (!isImportDeclaration(node)) return false;
 
@@ -233,7 +261,6 @@ export function hasCommandsImport(node: Node): boolean {
 	);
 }
 
-// Shared SSR rendering logic
 export async function renderComponentToSSR(
 	ctx: BrowserCommandContext,
 	Component: Component,
