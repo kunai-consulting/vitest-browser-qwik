@@ -246,21 +246,14 @@ async function renderComponentToHTML(
 	);
 	const { renderToStream } = serverModule;
 
-	let html = "";
-
-	await renderToStream(jsxElement, {
+	const result = await renderToStream(jsxElement, {
 		containerTagName: "div",
 		base: "/",
 		qwikLoader: { include: "always" },
 		symbolMapper: globalThis.qwikSymbolMapper,
-		stream: {
-			write(chunk: string) {
-				html += chunk;
-			},
-		},
 	});
 
-	return { html };
+	return { html: result.html };
 }
 
 // Shared logic for cleaning test files to extract local components
