@@ -254,13 +254,6 @@ async function renderComponentToSSR(
 ): Promise<{ html: string }> {
 	const viteServer = ctx.project.vite;
 
-	// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
-	for (const [key, value] of Object.entries(viteServer.config.env)) {
-		// biome-ignore lint/style/noNonNullAssertion: it's always defined
-		viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
-			JSON.stringify(value);
-	}
-
 	const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
 	const { jsx } = qwikModule;
 	const jsxElement = jsx(Component, props);
