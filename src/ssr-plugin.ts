@@ -3,6 +3,8 @@ import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type {
 	BindingIdentifier,
 	CallExpression,
+	ExpressionStatement,
+	FunctionType,
 	ImportDeclaration,
 	ImportDefaultSpecifier,
 	ImportSpecifier,
@@ -11,13 +13,47 @@ import type {
 	JSXElement,
 	JSXExpressionContainer,
 	Node,
+	Function as OxcFunction,
 	Span,
 	VariableDeclarator,
 } from "@oxc-project/types";
 import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
-// Helper to safely traverse AST children
+function isFunction(node: Node): node is OxcFunction {
+	const functionTypes: FunctionType[] = [
+		"FunctionDeclaration",
+		"FunctionExpression",
+		"TSDeclareFunction",
+		"TSEmptyBodyFunctionExpression",
+	];
+	return functionTypes.includes(node.type as FunctionType);
+}
+
+function isCallExpression(node: Node): node is CallExpression {
+	return node.type === "CallExpression";
+}
+
+function isImportDeclaration(node: Node): node is ImportDeclaration {
+	return node.type === "ImportDeclaration";
+}
+
+function isVariableDeclarator(node: Node): node is VariableDeclarator {
+	return node.type === "VariableDeclarator";
+}
+
+function isExpressionStatement(node: Node): node is ExpressionStatement {
+	return node.type === "ExpressionStatement";
+}
+
+function isJSXElement(node: Node): node is JSXElement {
+	return node.type === "JSXElement";
+}
+
+function isJSXExpressionContainer(node: Node): node is JSXExpressionContainer {
+	return node.type === "JSXExpressionContainer";
+}
+
 function traverseChildren(
 	node: Node,
 	callback: (child: Node) => boolean | undefined,
@@ -37,7 +73,6 @@ function traverseChildren(
 	return false;
 }
 
-// Helper function to check if code contains renderSSR calls using semantic analysis
 async function hasRenderSSRCall(
 	code: string,
 	filename: string,
@@ -52,11 +87,10 @@ async function hasRenderSSRCall(
 			if (!node || typeof node !== "object") return false;
 
 			// Track renderSSR imports and aliases
-			if (node.type === "ImportDeclaration") {
-				const importDecl = node as ImportDeclaration;
-				if (!importDecl.source?.value || !importDecl.specifiers) return false;
+			if (isImportDeclaration(node)) {
+				if (!node.source?.value || !node.specifiers) return false;
 
-				for (const spec of importDecl.specifiers) {
+				for (const spec of node.specifiers) {
 					if (spec.type === "ImportSpecifier") {
 						const importSpec = spec as ImportSpecifier;
 						if (importSpec.imported.type !== "Identifier") continue;
@@ -73,37 +107,26 @@ async function hasRenderSSRCall(
 			}
 
 			// Track declared renderSSR functions (including TypeScript declares)
-			if (node.type === "FunctionDeclaration") {
-				const funcDecl = node as { id?: { name: string } };
-				if (funcDecl.id?.name === "renderSSR") {
-					renderSSRIdentifiers.add("renderSSR");
-				}
-			}
-
-			// Track TypeScript declare statements
-			if (node.type === "TSDeclareFunction") {
-				const declareFunc = node as { id?: { name: string } };
-				if (declareFunc.id?.name === "renderSSR") {
+			if (isFunction(node)) {
+				if (node.id?.name === "renderSSR") {
 					renderSSRIdentifiers.add("renderSSR");
 				}
 			}
 
 			// Track variable aliases
-			if (node.type === "VariableDeclarator") {
-				const varDecl = node as VariableDeclarator;
-				if (varDecl.id.type !== "Identifier") return false;
-				if (varDecl.init?.type !== "Identifier") return false;
-				if (!renderSSRIdentifiers.has(varDecl.init.name)) return false;
+			if (isVariableDeclarator(node)) {
+				if (node.id.type !== "Identifier") return false;
+				if (node.init?.type !== "Identifier") return false;
+				if (!renderSSRIdentifiers.has(node.init.name)) return false;
 
-				const bindingId = varDecl.id as BindingIdentifier;
+				const bindingId = node.id as BindingIdentifier;
 				renderSSRIdentifiers.add(bindingId.name);
 			}
 
 			// Check for renderSSR calls
-			if (node.type === "CallExpression") {
-				const callExpr = node as CallExpression;
-				if (callExpr.callee.type === "Identifier") {
-					if (renderSSRIdentifiers.has(callExpr.callee.name)) {
+			if (isCallExpression(node)) {
+				if (node.callee.type === "Identifier") {
+					if (renderSSRIdentifiers.has(node.callee.name)) {
 						hasRenderSSRCallInCode = true;
 						return true;
 					}
@@ -170,11 +193,10 @@ function extractPropsFromJSX(
 		const propName = jsxAttr.name.name;
 		if (!jsxAttr.value) continue;
 
-		if (jsxAttr.value.type === "JSXExpressionContainer") {
+		if (isJSXExpressionContainer(jsxAttr.value)) {
 			// Extract the raw source code of the expression
-			const container = jsxAttr.value as JSXExpressionContainer;
-			if (container.expression.type !== "JSXEmptyExpression") {
-				const exprSpan = container.expression as { start: number; end: number };
+			if (jsxAttr.value.expression.type !== "JSXEmptyExpression") {
+				const exprSpan = jsxAttr.value.expression as Node & Span;
 				const expressionCode = sourceCode.slice(exprSpan.start, exprSpan.end);
 				props[propName] = expressionCode;
 			}
@@ -193,13 +215,12 @@ function isTestFile(id: string): boolean {
 }
 
 function hasCommandsImport(node: Node): boolean {
-	if (node.type !== "ImportDeclaration") return false;
+	if (!isImportDeclaration(node)) return false;
 
-	const importDecl = node as ImportDeclaration;
-	if (importDecl.source?.value !== "@vitest/browser/context") return false;
-	if (!importDecl.specifiers) return false;
+	if (node.source?.value !== "@vitest/browser/context") return false;
+	if (!node.specifiers) return false;
 
-	return importDecl.specifiers.some(
+	return node.specifiers.some(
 		(spec) =>
 			spec.type === "ImportSpecifier" &&
 			spec.imported.type === "Identifier" &&
@@ -315,7 +336,7 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 				if (!node || typeof node !== "object") return;
 
 				// Remove vitest imports
-				if (node.type === "ImportDeclaration") {
+				if (isImportDeclaration(node)) {
 					const importDecl = node as ImportDeclaration;
 					const source = importDecl.source?.value;
 					if (source === "vitest" || source?.includes("@vitest/")) {
@@ -325,8 +346,8 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 				}
 
 				// Remove test function calls (test, describe, it)
-				if (node.type === "ExpressionStatement") {
-					const exprStmt = node as any;
+				if (isExpressionStatement(node)) {
+					const exprStmt = node as ExpressionStatement;
 					if (exprStmt.expression?.type === "CallExpression") {
 						const callExpr = exprStmt.expression as CallExpression;
 						if (callExpr.callee.type === "Identifier") {
@@ -428,7 +449,7 @@ export function testSSR(): Plugin {
 					if (!node || typeof node !== "object") return;
 
 					// Track component imports
-					if (node.type === "ImportDeclaration") {
+					if (isImportDeclaration(node)) {
 						const importDecl = node as ImportDeclaration;
 						if (importDecl.source?.value && importDecl.specifiers) {
 							const source = importDecl.source.value;
@@ -456,7 +477,7 @@ export function testSSR(): Plugin {
 					}
 
 					// Track variable aliases for renderSSR
-					if (node.type === "VariableDeclarator") {
+					if (isVariableDeclarator(node)) {
 						const varDecl = node as VariableDeclarator;
 						if (
 							varDecl.id.type === "Identifier" &&
@@ -474,7 +495,7 @@ export function testSSR(): Plugin {
 					}
 
 					// Detect local component definitions and collect all variable declarations
-					if (node.type === "VariableDeclarator") {
+					if (isVariableDeclarator(node)) {
 						const varDecl = node as VariableDeclarator;
 						if (varDecl.id.type === "Identifier") {
 							const bindingId = varDecl.id as BindingIdentifier;
@@ -500,14 +521,14 @@ export function testSSR(): Plugin {
 					}
 
 					// Transform renderSSR calls
-					if (node.type === "CallExpression") {
+					if (isCallExpression(node)) {
 						const callExpr = node as CallExpression;
 						if (
 							callExpr.callee.type === "Identifier" &&
 							renderSSRIdentifiers.has(callExpr.callee.name)
 						) {
 							const jsxArg = callExpr.arguments?.[0];
-							if (jsxArg?.type === "JSXElement") {
+							if (isJSXElement(jsxArg)) {
 								const jsxElement = jsxArg as JSXElement;
 								if (jsxElement.openingElement?.name?.type === "JSXIdentifier") {
 									const componentName = jsxElement.openingElement.name.name;
@@ -583,7 +604,7 @@ export function testSSR(): Plugin {
 						function findLastImport(node: Node): undefined {
 							if (!node || typeof node !== "object") return;
 
-							if (node.type === "ImportDeclaration") {
+							if (isImportDeclaration(node)) {
 								const spanNode = node as Node & Span;
 								lastImportEnd = Math.max(lastImportEnd, spanNode.end);
 							}
