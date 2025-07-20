@@ -254,13 +254,6 @@ async function renderComponentToSSR(
 ): Promise<{ html: string }> {
 	const viteServer = ctx.project.vite;
 
-	// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
-	for (const [key, value] of Object.entries(viteServer.config.env)) {
-		// biome-ignore lint/style/noNonNullAssertion: it's always defined
-		viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
-			JSON.stringify(value);
-	}
-
 	const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
 	const { jsx } = qwikModule;
 	const jsxElement = jsx(Component, props);
@@ -291,6 +284,13 @@ const renderSSRCommand: ComponentFormat = async (
 		const absoluteComponentPath = resolve(projectRoot, componentPath);
 
 		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
+
 		const componentModule = await viteServer.ssrLoadModule(
 			absoluteComponentPath,
 		);
@@ -318,6 +318,12 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 ) => {
 	try {
 		const viteServer = ctx.project.vite;
+		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+		for (const [key, value] of Object.entries(viteServer.config.env)) {
+			// biome-ignore lint/style/noNonNullAssertion: it's always defined
+			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+				JSON.stringify(value);
+		}
 
 		// Create a modified version of the test file without vitest imports
 		const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
