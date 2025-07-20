@@ -1,4 +1,5 @@
 import { dirname, relative, resolve } from "node:path";
+import type { Component } from "@builder.io/qwik";
 import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type {
 	BindingIdentifier,
@@ -18,7 +19,7 @@ import type {
 	VariableDeclarator,
 } from "@oxc-project/types";
 import type { Plugin } from "vitest/config";
-import type { BrowserCommand } from "vitest/node";
+import type { BrowserCommand, BrowserCommandContext } from "vitest/node";
 
 function isFunction(node: Node): node is OxcFunction {
 	const functionTypes: FunctionType[] = [
@@ -245,6 +246,40 @@ type LocalComponentFormat = BrowserCommand<
 	]
 >;
 
+// Shared SSR rendering logic
+async function renderComponentToSSR(
+	ctx: BrowserCommandContext,
+	Component: Component,
+	props: Record<string, unknown> = {},
+): Promise<{ html: string }> {
+	const viteServer = ctx.project.ctx.vite;
+
+	// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
+	for (const [key, value] of Object.entries(viteServer.config.env)) {
+		// biome-ignore lint/style/noNonNullAssertion: it's always defined
+		viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
+			JSON.stringify(value);
+	}
+
+	const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+	const { jsx } = qwikModule;
+	const jsxElement = jsx(Component, props);
+
+	const serverModule = await viteServer.ssrLoadModule(
+		"@builder.io/qwik/server",
+	);
+	const { renderToString } = serverModule;
+
+	const result = await renderToString(jsxElement, {
+		containerTagName: "div",
+		base: "/",
+		qwikLoader: { include: "always" },
+		symbolMapper: globalThis.qwikSymbolMapper,
+	});
+
+	return { html: result.html };
+}
+
 const renderSSRCommand: ComponentFormat = async (
 	ctx,
 	componentPath: string,
@@ -256,13 +291,6 @@ const renderSSRCommand: ComponentFormat = async (
 		const absoluteComponentPath = resolve(projectRoot, componentPath);
 
 		const viteServer = ctx.project.vite;
-		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
-		for (const [key, value] of Object.entries(viteServer.config.env)) {
-			// biome-ignore lint/style/noNonNullAssertion: it's always defined
-			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
-				JSON.stringify(value);
-		}
-
 		const componentModule = await viteServer.ssrLoadModule(
 			absoluteComponentPath,
 		);
@@ -274,23 +302,7 @@ const renderSSRCommand: ComponentFormat = async (
 			);
 		}
 
-		const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
-		const { jsx } = qwikModule;
-		const jsxElement = jsx(Component, props);
-
-		const serverModule = await viteServer.ssrLoadModule(
-			"@builder.io/qwik/server",
-		);
-		const { renderToString } = serverModule;
-
-		const result = await renderToString(jsxElement, {
-			containerTagName: "div",
-			base: "/",
-			qwikLoader: { include: "always" },
-			symbolMapper: globalThis.qwikSymbolMapper,
-		});
-
-		return { html: result.html };
+		return await renderComponentToSSR(ctx, Component, props);
 	} catch (error) {
 		console.error("SSR Command Error:", error);
 		throw error;
@@ -306,12 +318,6 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 ) => {
 	try {
 		const viteServer = ctx.project.vite;
-		// vite doesn't replace import.meta.env with hardcoded values so we need to do it manually
-		for (const [key, value] of Object.entries(viteServer.config.env)) {
-			// biome-ignore lint/style/noNonNullAssertion: it's always defined
-			viteServer.config.define![`__vite_ssr_import_meta__.env.${key}`] =
-				JSON.stringify(value);
-		}
 
 		// Create a modified version of the test file without vitest imports
 		const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
@@ -391,23 +397,7 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 				);
 			}
 
-			const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
-			const { jsx } = qwikModule;
-			const jsxElement = jsx(Component, props);
-
-			const serverModule = await viteServer.ssrLoadModule(
-				"@builder.io/qwik/server",
-			);
-			const { renderToString } = serverModule;
-
-			const result = await renderToString(jsxElement, {
-				containerTagName: "div",
-				base: "/",
-				qwikLoader: { include: "always" },
-				symbolMapper: globalThis.qwikSymbolMapper,
-			});
-
-			return { html: result.html };
+			return await renderComponentToSSR(ctx, Component, props);
 		} finally {
 			// Clean up temporary file
 			try {
