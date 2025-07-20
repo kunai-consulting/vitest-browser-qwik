@@ -80,23 +80,6 @@ export function traverseChildren(
 	return false;
 }
 
-export async function hasRenderSSRCall(
-	code: string,
-	filename: string,
-): Promise<boolean> {
-	try {
-		const { parseSync } = await import("oxc-parser");
-		const ast = parseSync(filename, code);
-		return hasRenderSSRCallInAST(ast as unknown as Node, code);
-	} catch (error) {
-		console.warn(
-			`Failed to parse ${filename} for renderSSR detection, falling back to string check:`,
-			error,
-		);
-		return code.includes("renderSSR");
-	}
-}
-
 export function hasRenderSSRCallInAST(ast: Node, code: string): boolean {
 	const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
 	let hasRenderSSRCallInCode = false;
