@@ -1,11 +1,14 @@
 import { resolve } from "node:path";
 import { symbolMapper } from "@builder.io/qwik/optimizer";
+import type { Node } from "@oxc-project/types";
+import MagicString from "magic-string";
+import { parseSync } from "oxc-parser";
 import type { Plugin } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 import {
 	extractPropsFromJSX,
 	hasCommandsImport,
-	hasRenderSSRCall,
+	hasRenderSSRCallInAST,
 	isCallExpression,
 	isExpressionStatement,
 	isImportDeclaration,
@@ -99,10 +102,6 @@ const renderSSRLocalCommand: LocalComponentFormat = async (
 			// Read the original test file
 			const originalContent = readFileSync(testFilePath, "utf8");
 
-			// Use oxc to parse and remove vitest-related imports and test functions
-			const { parseSync } = await import("oxc-parser");
-			const MagicString = (await import("magic-string")).default;
-
 			const ast = parseSync(testFilePath, originalContent);
 			const s = new MagicString(originalContent);
 
@@ -185,13 +184,15 @@ export function testSSR(): Plugin {
 
 		async transform(code, id) {
 			if (!isTestFile(id)) return null;
-			if (!(await hasRenderSSRCall(code, id))) return null;
 
 			try {
-				const { parseSync } = await import("oxc-parser");
-				const MagicString = (await import("magic-string")).default;
-
 				const ast = parseSync(id, code);
+
+				// Check if this file has renderSSR calls using the parsed AST
+				if (!hasRenderSSRCallInAST(ast as unknown as Node, code)) {
+					return null;
+				}
+
 				const s = new MagicString(code);
 
 				const componentImports = new Map<string, string>();

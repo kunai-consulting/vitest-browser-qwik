@@ -87,73 +87,7 @@ export async function hasRenderSSRCall(
 	try {
 		const { parseSync } = await import("oxc-parser");
 		const ast = parseSync(filename, code);
-		const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
-		let hasRenderSSRCallInCode = false;
-
-		function walkForDetection(node: Node): boolean {
-			if (!node || typeof node !== "object") return false;
-
-			// Track renderSSR imports and aliases
-			if (isImportDeclaration(node)) {
-				if (!node.source?.value || !node.specifiers) return false;
-
-				for (const spec of node.specifiers) {
-					if (spec.type === "ImportSpecifier") {
-						const importSpec = spec as ImportSpecifier;
-						if (importSpec.imported.type !== "Identifier") continue;
-						if (importSpec.imported.name === "renderSSR") {
-							renderSSRIdentifiers.add(importSpec.local.name);
-						}
-					} else if (spec.type === "ImportDefaultSpecifier") {
-						const defaultSpec = spec as ImportDefaultSpecifier;
-						if (defaultSpec.local.name.toLowerCase().includes("renderssr")) {
-							renderSSRIdentifiers.add(defaultSpec.local.name);
-						}
-					}
-				}
-			}
-
-			// Track declared renderSSR functions (including TypeScript declares)
-			if (isFunction(node)) {
-				if (node.id?.name === "renderSSR") {
-					renderSSRIdentifiers.add("renderSSR");
-				}
-			}
-
-			// Track variable aliases
-			if (isVariableDeclarator(node)) {
-				if (node.id.type !== "Identifier") return false;
-				if (node.init?.type !== "Identifier") return false;
-				if (!renderSSRIdentifiers.has(node.init.name)) return false;
-
-				const bindingId = node.id as BindingIdentifier;
-				renderSSRIdentifiers.add(bindingId.name);
-			}
-
-			// Check for renderSSR calls
-			if (isCallExpression(node)) {
-				if (node.callee.type === "Identifier") {
-					if (renderSSRIdentifiers.has(node.callee.name)) {
-						hasRenderSSRCallInCode = true;
-						return true;
-					}
-				}
-			}
-
-			// Recursively check children
-			return traverseChildren(node, walkForDetection);
-		}
-
-		walkForDetection(ast as unknown as Node);
-
-		// If we have renderSSR calls, transform the code
-		// This handles both cases:
-		// 1. Explicit imports/declares with calls
-		// 2. Direct renderSSR calls (common in tests)
-		const hasCallsInString = code.includes("renderSSR(");
-		const result = hasRenderSSRCallInCode || hasCallsInString;
-
-		return result;
+		return hasRenderSSRCallInAST(ast as unknown as Node, code);
 	} catch (error) {
 		console.warn(
 			`Failed to parse ${filename} for renderSSR detection, falling back to string check:`,
@@ -161,6 +95,76 @@ export async function hasRenderSSRCall(
 		);
 		return code.includes("renderSSR");
 	}
+}
+
+export function hasRenderSSRCallInAST(ast: Node, code: string): boolean {
+	const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
+	let hasRenderSSRCallInCode = false;
+
+	function walkForDetection(node: Node): boolean {
+		if (!node || typeof node !== "object") return false;
+
+		// Track renderSSR imports and aliases
+		if (isImportDeclaration(node)) {
+			if (!node.source?.value || !node.specifiers) return false;
+
+			for (const spec of node.specifiers) {
+				if (spec.type === "ImportSpecifier") {
+					const importSpec = spec as ImportSpecifier;
+					if (importSpec.imported.type !== "Identifier") continue;
+					if (importSpec.imported.name === "renderSSR") {
+						renderSSRIdentifiers.add(importSpec.local.name);
+					}
+				} else if (spec.type === "ImportDefaultSpecifier") {
+					const defaultSpec = spec as ImportDefaultSpecifier;
+					if (defaultSpec.local.name.toLowerCase().includes("renderssr")) {
+						renderSSRIdentifiers.add(defaultSpec.local.name);
+					}
+				}
+			}
+		}
+
+		// Track declared renderSSR functions (including TypeScript declares)
+		if (isFunction(node)) {
+			if (node.id?.name === "renderSSR") {
+				renderSSRIdentifiers.add("renderSSR");
+			}
+		}
+
+		// Track variable aliases
+		if (isVariableDeclarator(node)) {
+			if (node.id.type !== "Identifier") return false;
+			if (node.init?.type !== "Identifier") return false;
+			if (!renderSSRIdentifiers.has(node.init.name)) return false;
+
+			const bindingId = node.id as BindingIdentifier;
+			renderSSRIdentifiers.add(bindingId.name);
+		}
+
+		// Check for renderSSR calls
+		if (isCallExpression(node)) {
+			if (node.callee.type === "Identifier") {
+				if (renderSSRIdentifiers.has(node.callee.name)) {
+					hasRenderSSRCallInCode = true;
+					return true;
+				}
+			}
+		}
+
+		// Recursively check children
+		return traverseChildren(node, walkForDetection);
+	}
+
+	walkForDetection(ast);
+
+	// If we have renderSSR calls, transform the code
+	// This handles both cases:
+	// 1. Explicit imports/declares with calls
+	// 2. Direct renderSSR calls (common in tests)
+	const hasCallsInString = code.includes("renderSSR(");
+	const result = hasRenderSSRCallInCode || hasCallsInString;
+
+	return result;
 }
 
 export function extractPropsFromJSX(
