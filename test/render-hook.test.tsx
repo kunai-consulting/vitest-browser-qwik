@@ -1,4 +1,4 @@
-import { $, type QRL, type Signal, useSignal } from "@builder.io/qwik";
+import { $, type QRL, type Signal, useSignal } from "@qwik.dev/core";
 import { expect, test } from "vitest";
 import { renderHook } from "../src/index";
 import { useCounter } from "./fixtures/useCounter";

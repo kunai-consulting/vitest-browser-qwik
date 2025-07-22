@@ -1,4 +1,4 @@
-import { component$, useSignal } from "@builder.io/qwik";
+import { component$, useSignal } from "@qwik.dev/core";
 import { page } from "@vitest/browser/context";
 // import { Button } from "react-aria-components";
 import { expect, test } from "vitest";

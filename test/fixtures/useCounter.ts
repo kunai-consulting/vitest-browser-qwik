@@ -1,4 +1,4 @@
-import { $, type QRL, type Signal } from "@builder.io/qwik";
+import { $, type QRL, type Signal } from "@qwik.dev/core";
 
 export function useCounter({ countSignal }: { countSignal: Signal<number> }): {
 	count: Signal<number>;

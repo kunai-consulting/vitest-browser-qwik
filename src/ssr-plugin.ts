@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
-import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type { Node } from "@oxc-project/types";
+import { symbolMapper } from "@qwik.dev/core/optimizer";
 import MagicString from "magic-string";
 import { parseSync } from "oxc-parser";
 import type { Plugin } from "vitest/config";
