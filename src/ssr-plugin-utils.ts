@@ -1,5 +1,5 @@
 import { dirname, relative, resolve } from "node:path";
-import type { Component } from "@builder.io/qwik";
+import type { Component } from "@qwik.dev/core";
 import type {
 	BindingIdentifier,
 	CallExpression,
@@ -237,12 +237,12 @@ export async function renderComponentToSSR(
 ): Promise<{ html: string }> {
 	const viteServer = ctx.project.vite;
 
-	const qwikModule = await viteServer.ssrLoadModule("@builder.io/qwik");
+	const qwikModule = await viteServer.ssrLoadModule("@qwik.dev/core");
 	const { jsx } = qwikModule;
 	const jsxElement = jsx(Component, props);
 
 	const serverModule = await viteServer.ssrLoadModule(
-		"@builder.io/qwik/server",
+		"@qwik.dev/core/server",
 	);
 	const { renderToStream } = serverModule;
 

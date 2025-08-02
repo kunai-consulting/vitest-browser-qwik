@@ -1,6 +1,6 @@
-import type { JSXOutput } from "@builder.io/qwik";
-import { component$, render as qwikRender } from "@builder.io/qwik";
-import { getQwikLoaderScript } from "@builder.io/qwik/server";
+import type { JSXOutput } from "@qwik.dev/core";
+import { component$, render as qwikRender } from "@qwik.dev/core";
+import { getQwikLoaderScript } from "@qwik.dev/core/server";
 import type { Locator, LocatorSelectors } from "@vitest/browser/context";
 import {
 	debug,

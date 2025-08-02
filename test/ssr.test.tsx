@@ -1,4 +1,4 @@
-import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { component$, useSignal, useTask$ } from "@qwik.dev/core";
 import { expect, test } from "vitest";
 import { renderSSR } from "../src";
 import { Counter, TaskCounter } from "./fixtures/Counter";
