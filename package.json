@@ -1,6 +1,6 @@
 {
 	"name": "vitest-browser-qwik",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"packageManager": "pnpm@10.13.1",
 	"description": "Render Qwik components using Vitest Browser Mode",
 	"type": "module",
