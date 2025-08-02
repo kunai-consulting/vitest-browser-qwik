@@ -1,4 +1,4 @@
-name: Unit Test
+name: Integration Tests
 
 on:
   push:
@@ -25,6 +25,9 @@ jobs:
       - name: Install
         run: pnpm install
 
+      - name: Install Playwright Browsers
+        run: pnpm exec playwright install
+
       - name: Build
         run: pnpm run build
 
@@ -34,5 +37,8 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      # - name: Test
-      #   run: pnpm run test
+      - name: Test
+        run: pnpm run test
+
+      - name: SSR Plugin Tests
+        run: pnpm run test:ssr-plugin

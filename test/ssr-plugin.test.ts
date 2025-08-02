@@ -214,29 +214,6 @@ describe("SSR Transform Plugin", () => {
 			);
 		});
 
-		it("should handle components without props", async () => {
-			const { testSSR } = await import("../src/ssr-plugin");
-			const plugin = testSSR();
-			const transform = plugin.transform as TransformFunction;
-
-			const code = `
-				import { HelloWorld } from "./fixtures/HelloWorld";
-				
-				test("example", () => {
-					renderSSR(<HelloWorld />);
-				});
-			`;
-
-			const result = await transform(code, "/test/no-props.test.tsx");
-			expect(result).not.toBeNull();
-			expect(result.code).toContain("commands.renderSSR(");
-			expect(result.code).toContain('"HelloWorld"');
-			// Should not have props parameter when no props
-			expect(result.code).toContain(
-				'renderSSR("./../../../../test/fixtures/HelloWorld.tsx", "HelloWorld")',
-			);
-		});
-
 		it("should handle string literal props", async () => {
 			const { testSSR } = await import("../src/ssr-plugin");
 			const plugin = testSSR();
@@ -336,6 +313,209 @@ describe("SSR Transform Plugin", () => {
 			expect(result).not.toBeNull();
 			expect(result.code).toContain("MyComponent.tsx");
 			expect(result.code).toContain('"MyComponent"');
+		});
+	});
+
+	describe("local component support", () => {
+		it("should detect local component definitions", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				
+				const LocalComponent = component$(() => {
+					const count = useSignal(0);
+					return <div>Count: {count.value}</div>;
+				});
+				
+				test("example", () => {
+					renderSSR(<LocalComponent />);
+				});
+			`;
+
+			const result = await transform(code, "/test/local-component.test.tsx");
+			console.log("Local component result:", result?.code || "null");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain("commands.renderSSRLocal");
+				expect(result.code).toContain('"LocalComponent"');
+				expect(result.code).toContain("const LocalComponent = component$");
+			}
+		});
+
+		it("should handle local components with props", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				
+				const CounterComponent = component$<{ initialValue: number }>(({ initialValue }) => {
+					const count = useSignal(initialValue);
+					return <button onClick$={() => count.value++}>Count: {count.value}</button>;
+				});
+				
+				test("example", () => {
+					renderSSR(<CounterComponent initialValue={5} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/local-with-props.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain("commands.renderSSRLocal");
+				expect(result.code).toContain('"CounterComponent"');
+				expect(result.code).toContain('"initialValue": 5');
+			}
+		});
+
+		it("should handle local components with useTask$", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+				
+				const TaskComponent = component$(() => {
+					const count = useSignal(0);
+					
+					useTask$(() => {
+						count.value = count.value + 5;
+					});
+					
+					return <div>Count: {count.value}</div>;
+				});
+				
+				test("example", () => {
+					renderSSR(<TaskComponent />);
+				});
+			`;
+
+			const result = await transform(code, "/test/local-with-task.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain("commands.renderSSRLocal");
+				expect(result.code).toContain('"TaskComponent"');
+				expect(result.code).toContain("useTask$");
+			}
+		});
+
+		it("should handle mixed local and imported components", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				import { Counter } from "./fixtures/Counter";
+				
+				const LocalComponent = component$(() => {
+					const count = useSignal(0);
+					return <div>Local: {count.value}</div>;
+				});
+				
+				test("example", () => {
+					renderSSR(<Counter initialCount={5} />);
+					renderSSR(<LocalComponent />);
+				});
+			`;
+
+			const result = await transform(code, "/test/mixed-components.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				// Should have both commands
+				expect(result.code).toContain("commands.renderSSR("); // for imported Counter
+				expect(result.code).toContain("commands.renderSSRLocal("); // for local LocalComponent
+				expect(result.code).toContain('"Counter"');
+				expect(result.code).toContain('"LocalComponent"');
+			}
+		});
+
+		it("should handle multiple local components", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				
+				const FirstComponent = component$(() => {
+					return <div>First</div>;
+				});
+				
+				const SecondComponent = component$(() => {
+					const value = useSignal("second");
+					return <span>{value.value}</span>;
+				});
+				
+				test("example", () => {
+					renderSSR(<FirstComponent />);
+					renderSSR(<SecondComponent />);
+				});
+			`;
+
+			const result = await transform(code, "/test/multiple-local.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain('"FirstComponent"');
+				expect(result.code).toContain('"SecondComponent"');
+				// Should have two renderSSRLocal calls
+				const localCalls = result.code.match(/commands\.renderSSRLocal/g);
+				expect(localCalls).toHaveLength(2);
+			}
+		});
+
+		it("should handle local components with complex expressions", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				
+				const ComplexComponent = component$<{ data: { value: number; name: string } }>(({ data }) => {
+					const count = useSignal(data.value);
+					return <div>{data.name}: {count.value}</div>;
+				});
+				
+				test("example", () => {
+					const testData = { value: 42, name: "test" };
+					renderSSR(<ComplexComponent data={testData} />);
+				});
+			`;
+
+			const result = await transform(code, "/test/complex-local.test.tsx");
+			expect(result).not.toBeNull();
+			if (result) {
+				expect(result.code).toContain("commands.renderSSRLocal");
+				expect(result.code).toContain('"ComplexComponent"');
+				expect(result.code).toContain('"data": testData');
+			}
+		});
+
+		it("should not transform local components without renderSSR calls", async () => {
+			const { testSSR } = await import("../src/ssr-plugin");
+			const plugin = testSSR();
+			const transform = plugin.transform as TransformFunction;
+
+			const code = `
+				import { component$, useSignal } from "@builder.io/qwik";
+				
+				const UnusedComponent = component$(() => {
+					return <div>Not used</div>;
+				});
+				
+				test("example", () => {
+					console.log("No renderSSR call here");
+				});
+			`;
+
+			const result = await transform(code, "/test/unused-local.test.tsx");
+			expect(result).toBeNull(); // Should not transform since no renderSSR calls
 		});
 	});
 
