@@ -1,5 +1,4 @@
 import { dirname, relative, resolve } from "node:path";
-import type { Component } from "@qwik.dev/core";
 import type {
 	BindingIdentifier,
 	CallExpression,
@@ -17,6 +16,7 @@ import type {
 	Span,
 	VariableDeclarator,
 } from "@oxc-project/types";
+import type { Component } from "@qwik.dev/core";
 import { ResolverFactory } from "oxc-resolver";
 import type { BrowserCommandContext } from "vitest/node";
 
@@ -230,6 +230,35 @@ export function hasCommandsImport(node: Node): boolean {
 	);
 }
 
+// Core handler symbols that Qwik exports
+const CORE_HANDLER_SYMBOLS = new Set(["_run", "_task", "_val", "_chk"]);
+
+// Symbol mapper for test environment that mimics dev mode behavior
+function createTestSymbolMapper(base: string) {
+	return (
+		symbolName: string,
+		_chunk: unknown,
+		parent?: string,
+	): readonly [string, string] | undefined => {
+		// Core handler symbols (without parent) go to @qwik-handlers virtual module
+		if (!parent) {
+			if (
+				CORE_HANDLER_SYMBOLS.has(symbolName) ||
+				(symbolName.startsWith("_") && symbolName.length < 6)
+			) {
+				return [symbolName, `${base}@qwik-handlers`];
+			}
+			// Fallback for other symbols without parent
+			console.warn(`Unknown symbol in test SSR without parent: ${symbolName}`);
+			return [symbolName, `${base}${symbolName}.js`];
+		}
+
+		// For component symbols with parent, create predictable dev paths
+		const parentPath = parent.startsWith("/") ? parent.slice(1) : parent;
+		return [symbolName, `${base}${parentPath}_${symbolName}.js`];
+	};
+}
+
 export async function renderComponentToSSR(
 	ctx: BrowserCommandContext,
 	Component: Component,
@@ -241,18 +270,18 @@ export async function renderComponentToSSR(
 	const { jsx } = qwikModule;
 	const jsxElement = jsx(Component, props);
 
-	const serverModule = await viteServer.ssrLoadModule(
-		"@qwik.dev/core/server",
-	);
+	const serverModule = await viteServer.ssrLoadModule("@qwik.dev/core/server");
 	const { renderToStream } = serverModule;
 
 	let html = "";
+	const base = viteServer.config.base || "/";
+	const symbolMapper = createTestSymbolMapper(base);
 
 	await renderToStream(jsxElement, {
 		containerTagName: "div",
-		base: "/",
+		base,
 		qwikLoader: { include: "always" },
-		symbolMapper: globalThis.qwikSymbolMapper,
+		symbolMapper,
 		stream: {
 			write(chunk: string) {
 				html += chunk;
