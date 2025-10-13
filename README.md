@@ -20,6 +20,7 @@ npm install -D vitest-browser-qwik
 ```tsx
 import { defineConfig } from 'vitest/config'
 import { qwikVite } from '@qwik.dev/core/optimizer'
+import { playwright } from '@vitest/browser-playwright'
 
 // optional, run the tests in SSR mode
 import { testSSR } from 'vitest-browser-qwik/ssr-plugin'
@@ -29,7 +30,7 @@ export default defineConfig({
   test: {
     browser: {
       enabled: true,
-      provider: 'playwright',
+      provider: playwright(),
       instances: [{ browser: 'chromium' }]
     },
   },

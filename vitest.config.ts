@@ -1,13 +1,15 @@
 import { qwikVite } from "@qwik.dev/core/optimizer";
+import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 import { testSSR } from "./src/ssr-plugin";
 
 export default defineConfig({
 	plugins: [testSSR(), qwikVite()],
 	test: {
+		testTimeout: 2000,
 		browser: {
 			enabled: true,
-			provider: "playwright",
+			provider: playwright(),
 			instances: [{ browser: "chromium" }],
 			headless: false,
 		},
