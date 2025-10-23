@@ -1,4 +1,4 @@
-import type { SymbolMapperFn } from "@builder.io/qwik/optimizer";
+import type { SymbolMapperFn } from "@qwik.dev/core/optimizer";
 
 declare global {
   var qwikSymbolMapper: SymbolMapperFn | undefined;

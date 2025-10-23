@@ -3,13 +3,9 @@
 exports[`renders simple component 1`] = `
 <div
   q:container="resumed"
-  q:render="dom"
-  q:version="1.15.0"
 >
-  <!--qv -->
   <div>
     Hello World
   </div>
-  <!--/qv-->
 </div>
 `;

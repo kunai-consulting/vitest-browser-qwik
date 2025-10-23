@@ -210,7 +210,7 @@ describe("SSR Transform Plugin", () => {
 			expect(result.code).toContain('"Counter"');
 			expect(result.code).toContain('"initialCount": 5');
 			expect(result.code).toContain(
-				'import { commands } from "@vitest/browser/context"',
+				'import { commands } from "vitest/browser"',
 			);
 		});
 
@@ -260,19 +260,19 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { commands } from "@vitest/browser/context";
-				import { Counter } from "./fixtures/Counter";
-				
-				test("example", () => {
-					renderSSR(<Counter />);
-				});
-			`;
+			import { commands } from "vitest/browser";
+			import { Counter } from "./fixtures/Counter";
+			
+			test("example", () => {
+				renderSSR(<Counter />);
+			});
+		`;
 
 			const result = await transform(code, "/test/existing-commands.test.tsx");
 			expect(result).not.toBeNull();
 			// Should not add duplicate import
 			const importMatches = result.code.match(
-				/import.*commands.*from.*@vitest\/browser\/context/g,
+				/import.*commands.*from.*vitest\/browser/g,
 			);
 			expect(importMatches).toHaveLength(1);
 		});
@@ -323,7 +323,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				
 				const LocalComponent = component$(() => {
 					const count = useSignal(0);
@@ -351,7 +351,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				
 				const CounterComponent = component$<{ initialValue: number }>(({ initialValue }) => {
 					const count = useSignal(initialValue);
@@ -378,7 +378,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+				import { component$, useSignal, useTask$ } from "@qwik.dev/core";
 				
 				const TaskComponent = component$(() => {
 					const count = useSignal(0);
@@ -410,7 +410,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				import { Counter } from "./fixtures/Counter";
 				
 				const LocalComponent = component$(() => {
@@ -441,7 +441,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				
 				const FirstComponent = component$(() => {
 					return <div>First</div>;
@@ -475,7 +475,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				
 				const ComplexComponent = component$<{ data: { value: number; name: string } }>(({ data }) => {
 					const count = useSignal(data.value);
@@ -503,7 +503,7 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { component$, useSignal } from "@builder.io/qwik";
+				import { component$, useSignal } from "@qwik.dev/core";
 				
 				const UnusedComponent = component$(() => {
 					return <div>Not used</div>;
