@@ -1,6 +1,6 @@
 import type { JSXNode, JSXOutput } from "@qwik.dev/core";
-import { page } from "@vitest/browser/context";
 import { beforeEach } from "vitest";
+import { page } from "vitest/browser";
 import { cleanup, type RenderResult, render, renderServerHTML } from "./pure";
 
 export function renderSSR(jsxNode: JSXOutput): Promise<RenderResult> {
@@ -32,7 +32,7 @@ beforeEach(async () => {
 	await cleanup();
 });
 
-declare module "@vitest/browser/context" {
+declare module "vitest/browser" {
 	interface BrowserPage {
 		render: typeof render;
 		renderServerHTML: typeof renderServerHTML;

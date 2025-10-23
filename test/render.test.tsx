@@ -1,7 +1,7 @@
 import { component$, useSignal } from "@qwik.dev/core";
-import { page } from "@vitest/browser/context";
 // import { Button } from "react-aria-components";
 import { expect, test } from "vitest";
+import { page } from "vitest/browser";
 import { render } from "../src/index";
 import { Counter } from "./fixtures/Counter";
 import { HelloWorld } from "./fixtures/HelloWorld";

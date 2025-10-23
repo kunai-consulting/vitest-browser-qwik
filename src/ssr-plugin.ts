@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
-import { symbolMapper } from "@qwik.dev/core/optimizer";
 import type { Node } from "@oxc-project/types";
+import { symbolMapper } from "@qwik.dev/core/optimizer";
 import MagicString from "magic-string";
 import { parseSync } from "oxc-parser";
 import type { Plugin } from "vitest/config";
@@ -299,7 +299,7 @@ export function testSSR(): Plugin {
 					if (lastImportEnd > 0) {
 						s.appendLeft(
 							lastImportEnd,
-							'\nimport { commands } from "@vitest/browser/context";\nimport { renderServerHTML } from "vitest-browser-qwik";',
+							'\nimport { commands } from "vitest/browser";\nimport { renderServerHTML } from "vitest-browser-qwik";',
 						);
 					}
 				}

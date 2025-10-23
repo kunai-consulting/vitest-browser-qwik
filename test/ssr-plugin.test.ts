@@ -210,7 +210,7 @@ describe("SSR Transform Plugin", () => {
 			expect(result.code).toContain('"Counter"');
 			expect(result.code).toContain('"initialCount": 5');
 			expect(result.code).toContain(
-				'import { commands } from "@vitest/browser/context"',
+				'import { commands } from "vitest/browser"',
 			);
 		});
 
@@ -260,19 +260,19 @@ describe("SSR Transform Plugin", () => {
 			const transform = plugin.transform as TransformFunction;
 
 			const code = `
-				import { commands } from "@vitest/browser/context";
-				import { Counter } from "./fixtures/Counter";
-				
-				test("example", () => {
-					renderSSR(<Counter />);
-				});
-			`;
+			import { commands } from "vitest/browser";
+			import { Counter } from "./fixtures/Counter";
+			
+			test("example", () => {
+				renderSSR(<Counter />);
+			});
+		`;
 
 			const result = await transform(code, "/test/existing-commands.test.tsx");
 			expect(result).not.toBeNull();
 			// Should not add duplicate import
 			const importMatches = result.code.match(
-				/import.*commands.*from.*@vitest\/browser\/context/g,
+				/import.*commands.*from.*vitest\/browser/g,
 			);
 			expect(importMatches).toHaveLength(1);
 		});

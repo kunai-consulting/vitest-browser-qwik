@@ -1,5 +1,4 @@
 import { dirname, relative, resolve } from "node:path";
-import type { Component } from "@qwik.dev/core";
 import type {
 	BindingIdentifier,
 	CallExpression,
@@ -17,6 +16,7 @@ import type {
 	Span,
 	VariableDeclarator,
 } from "@oxc-project/types";
+import type { Component } from "@qwik.dev/core";
 import { ResolverFactory } from "oxc-resolver";
 import type { BrowserCommandContext } from "vitest/node";
 
@@ -216,7 +216,7 @@ export function resolveComponentPath(
 export function hasCommandsImport(node: Node): boolean {
 	if (
 		!isImportDeclaration(node) ||
-		node.source?.value !== "@vitest/browser/context" ||
+		node.source?.value !== "vitest/browser" ||
 		!node.specifiers
 	) {
 		return false;
@@ -241,9 +241,7 @@ export async function renderComponentToSSR(
 	const { jsx } = qwikModule;
 	const jsxElement = jsx(Component, props);
 
-	const serverModule = await viteServer.ssrLoadModule(
-		"@qwik.dev/core/server",
-	);
+	const serverModule = await viteServer.ssrLoadModule("@qwik.dev/core/server");
 	const { renderToStream } = serverModule;
 
 	let html = "";

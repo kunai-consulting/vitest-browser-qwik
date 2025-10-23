@@ -1,12 +1,10 @@
 import type { JSXOutput } from "@qwik.dev/core";
 import { component$, render as qwikRender } from "@qwik.dev/core";
 import { getQwikLoaderScript } from "@qwik.dev/core/server";
-import type { Locator, LocatorSelectors } from "@vitest/browser/context";
-import {
-	debug,
-	getElementLocatorSelectors,
-	type PrettyDOMOptions,
-} from "@vitest/browser/utils";
+import { type Locator, type LocatorSelectors, utils } from "vitest/browser";
+
+const { debug, getElementLocatorSelectors } = utils;
+type PrettyDOMOptions = Parameters<typeof debug>[2];
 
 export interface RenderResult extends LocatorSelectors {
 	container: HTMLElement;
