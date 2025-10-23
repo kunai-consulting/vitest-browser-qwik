@@ -4,9 +4,7 @@ exports[`renders simple component 1`] = `
 <div
   q:container="resumed"
 >
-  <div
-    q:key="IF_0"
-  >
+  <div>
     Hello World
   </div>
 </div>
