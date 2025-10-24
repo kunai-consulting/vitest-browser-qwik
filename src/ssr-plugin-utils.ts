@@ -216,7 +216,7 @@ export function resolveComponentPath(
 export function hasCommandsImport(node: Node): boolean {
 	if (
 		!isImportDeclaration(node) ||
-		node.source?.value !== "@vitest/browser/context" ||
+		node.source?.value !== "vitest/browser" ||
 		!node.specifiers
 	) {
 		return false;
