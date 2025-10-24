@@ -50,33 +50,33 @@
 		"dev": "tsdown --watch",
 		"test": "vitest",
 		"test:ssr-plugin": "vitest --config vitest.ssr-plugin.config.ts",
+		"snapshot": "vitest -u",
 		"typecheck": "tsc --noEmit",
 		"release": "bumpp && pnpm publish",
 		"prepublishOnly": "pnpm run build"
 	},
 	"dependencies": {
+		"@oxc-project/types": "^0.95.0",
 		"magic-string": "^0.30.17",
-		"oxc-parser": "^0.73.2"
+		"oxc-parser": "^0.95.0",
+		"oxc-resolver": "^11.11.1"
 	},
 	"peerDependencies": {
 		"@builder.io/qwik": ">=1.14.1",
-		"@vitest/browser": "^3.2.4",
 		"vite": ">=6.3.5",
-		"vitest": "^3.1.3"
+		"vitest": "^4.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.0",
-		"@builder.io/qwik": "^1.15",
-		"@oxc-project/types": "^0.73.2",
 		"@playwright/test": "see flake.nix",
+		"@builder.io/qwik": "^1.17",
 		"@types/node": "^22.15.17",
-		"@vitest/browser": "^3.2.4",
+		"@vitest/browser-playwright": "^4.0.0",
 		"bumpp": "^10.1.0",
-		"oxc-resolver": "^11.2.0",
-		"oxc-walker": "^0.3.0",
-		"tsdown": "^0.11.9",
+		"ignore": "^7.0.5",
+		"tsdown": "^0.15.9",
 		"typescript": "^5.8.3",
-		"vitest": "^3.1.3"
+		"vitest": "^4.0.0"
 	},
 	"pnpm": {
 		"overrides": {
