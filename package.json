@@ -56,7 +56,10 @@
 		"prepublishOnly": "pnpm run build"
 	},
 	"dependencies": {
-		"magic-string": "^0.30.17"
+		"@oxc-project/types": "^0.95.0",
+		"magic-string": "^0.30.17",
+		"oxc-parser": "^0.95.0",
+		"oxc-resolver": "^11.11.1"
 	},
 	"peerDependencies": {
 		"@builder.io/qwik": ">=1.14.1",
@@ -65,16 +68,12 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.0",
-		"@oxc-project/types": "^0.95.0",
 		"@playwright/test": "see flake.nix",
 		"@builder.io/qwik": "^1.17",
 		"@types/node": "^22.15.17",
 		"@vitest/browser-playwright": "^4.0.0",
 		"bumpp": "^10.1.0",
 		"ignore": "^7.0.5",
-		"oxc-parser": "^0.95.0",
-		"oxc-resolver": "^11.11.1",
-		"oxc-walker": "^0.5.2",
 		"tsdown": "^0.15.9",
 		"typescript": "^5.8.3",
 		"vitest": "^4.0.0"
