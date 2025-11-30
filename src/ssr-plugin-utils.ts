@@ -167,10 +167,6 @@ export function extractPropsFromJSX(
 	return props;
 }
 
-export function isTestFile(id: string): boolean {
-	return id.includes(".test.") || id.includes(".spec.");
-}
-
 function fallbackResolveComponentPath(
 	importPath: string,
 	testFileId: string,

@@ -17,6 +17,30 @@ npm install -D vitest-browser-qwik
 
 ## Vitest Config Setup
 
+### Vitest 4+
+
+```tsx
+import { defineConfig } from 'vitest/config'
+import { qwikVite } from '@qwik.dev/core/optimizer'
+import { playwright } from '@vitest/browser-playwright'
+
+// optional, run the tests in SSR mode
+import { testSSR } from 'vitest-browser-qwik/ssr-plugin'
+
+export default defineConfig({
+  plugins: [testSSR(), qwikVite()],
+  test: {
+    browser: {
+      enabled: true,
+      provider: playwright(),
+      instances: [{ browser: 'chromium' }]
+    },
+  },
+})
+```
+
+### Vitest 3 (Legacy)
+
 ```tsx
 import { defineConfig } from 'vitest/config'
 import { qwikVite } from '@builder.io/qwik/optimizer'
