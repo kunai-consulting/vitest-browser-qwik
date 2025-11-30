@@ -72,6 +72,7 @@
 		"@builder.io/qwik": "^1.17",
 		"@types/node": "^22.15.17",
 		"@vitest/browser-playwright": "^4.0.0",
+		"magic-regexp": "^0.10.0",
 		"bumpp": "^10.1.0",
 		"ignore": "^7.0.5",
 		"tsdown": "^0.15.9",

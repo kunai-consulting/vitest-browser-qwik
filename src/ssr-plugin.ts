@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { symbolMapper } from "@builder.io/qwik/optimizer";
 import type { Node } from "@oxc-project/types";
+import { anyOf, createRegExp, exactly, maybe } from "magic-regexp";
 import MagicString from "magic-string";
 import { parseSync } from "oxc-parser";
 import type { Plugin } from "vitest/config";
@@ -13,12 +14,15 @@ import {
 	isExpressionStatement,
 	isImportDeclaration,
 	isJSXElement,
-	isTestFile,
 	isVariableDeclarator,
 	renderComponentToSSR,
 	resolveComponentPath,
 	traverseChildren,
 } from "./ssr-plugin-utils";
+
+const isJSorTS = createRegExp(
+	exactly(".").and(anyOf("j", "t")).and("s").and(maybe("x")).at.lineEnd(),
+);
 
 type ComponentFormat = BrowserCommand<
 	[
@@ -158,165 +162,171 @@ export function testSSR(): Plugin {
 		name: "vitest:ssr-transform",
 		enforce: "pre",
 
-		async transform(code, id) {
-			if (!isTestFile(id)) return null;
+		transform: {
+			filter: {
+				id: isJSorTS,
+				code: /renderSSR/,
+			},
+			async handler(code, id) {
+				const ast = parseSync(id, code);
+				if (!hasRenderSSRCallInAST(ast.program, code)) return null;
 
-			const ast = parseSync(id, code);
-			if (!hasRenderSSRCallInAST(ast.program, code)) return null;
+				const s = new MagicString(code);
+				const componentImports = new Map<string, string>();
+				const localComponents = new Map<string, string>();
+				const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
+				let hasExistingCommandsImport = false;
 
-			const s = new MagicString(code);
-			const componentImports = new Map<string, string>();
-			const localComponents = new Map<string, string>();
-			const renderSSRIdentifiers = new Set<string>(["renderSSR"]);
-			let hasExistingCommandsImport = false;
-
-			function walkForTransformation(node: Node): undefined {
-				if (
-					isImportDeclaration(node) &&
-					node.source?.value &&
-					node.specifiers
-				) {
-					const source = node.source.value;
-					for (const spec of node.specifiers) {
-						if (
-							spec.type === "ImportSpecifier" &&
-							spec.imported.type === "Identifier"
-						) {
-							componentImports.set(spec.imported.name, source);
-							if (spec.imported.name === "renderSSR") {
+				function walkForTransformation(node: Node): undefined {
+					if (
+						isImportDeclaration(node) &&
+						node.source?.value &&
+						node.specifiers
+					) {
+						const source = node.source.value;
+						for (const spec of node.specifiers) {
+							if (
+								spec.type === "ImportSpecifier" &&
+								spec.imported.type === "Identifier"
+							) {
+								componentImports.set(spec.imported.name, source);
+								if (spec.imported.name === "renderSSR") {
+									renderSSRIdentifiers.add(spec.local.name);
+								}
+							} else if (
+								spec.type === "ImportDefaultSpecifier" &&
+								spec.local.name.toLowerCase().includes("renderssr")
+							) {
 								renderSSRIdentifiers.add(spec.local.name);
 							}
-						} else if (
-							spec.type === "ImportDefaultSpecifier" &&
-							spec.local.name.toLowerCase().includes("renderssr")
-						) {
-							renderSSRIdentifiers.add(spec.local.name);
 						}
 					}
-				}
 
-				if (isVariableDeclarator(node)) {
-					if (
-						node.id.type === "Identifier" &&
-						node.init?.type === "Identifier" &&
-						renderSSRIdentifiers.has(node.init.name)
-					) {
-						renderSSRIdentifiers.add(node.id.name);
-					}
-
-					if (
-						node.id.type === "Identifier" &&
-						node.init?.type === "CallExpression"
-					) {
-						const callExpr = node.init;
+					if (isVariableDeclarator(node)) {
 						if (
-							callExpr.callee.type === "Identifier" &&
-							callExpr.callee.name === "component$"
+							node.id.type === "Identifier" &&
+							node.init?.type === "Identifier" &&
+							renderSSRIdentifiers.has(node.init.name)
 						) {
-							const fullDeclaration = code.slice(node.start, node.end);
-							localComponents.set(node.id.name, fullDeclaration);
+							renderSSRIdentifiers.add(node.id.name);
+						}
+
+						if (
+							node.id.type === "Identifier" &&
+							node.init?.type === "CallExpression"
+						) {
+							const callExpr = node.init;
+							if (
+								callExpr.callee.type === "Identifier" &&
+								callExpr.callee.name === "component$"
+							) {
+								const fullDeclaration = code.slice(node.start, node.end);
+								localComponents.set(node.id.name, fullDeclaration);
+							}
 						}
 					}
-				}
 
-				if (hasCommandsImport(node)) {
-					hasExistingCommandsImport = true;
-				}
+					if (hasCommandsImport(node)) {
+						hasExistingCommandsImport = true;
+					}
 
-				if (
-					isCallExpression(node) &&
-					node.callee.type === "Identifier" &&
-					renderSSRIdentifiers.has(node.callee.name)
-				) {
-					const jsxArg = node.arguments?.[0];
 					if (
-						!isJSXElement(jsxArg) ||
-						jsxArg.openingElement?.name?.type !== "JSXIdentifier"
+						isCallExpression(node) &&
+						node.callee.type === "Identifier" &&
+						renderSSRIdentifiers.has(node.callee.name)
 					) {
-						traverseChildren(node, walkForTransformation);
-						return;
-					}
+						const jsxArg = node.arguments?.[0];
+						if (
+							!isJSXElement(jsxArg) ||
+							jsxArg.openingElement?.name?.type !== "JSXIdentifier"
+						) {
+							traverseChildren(node, walkForTransformation);
+							return;
+						}
 
-					const componentName = jsxArg.openingElement.name.name;
-					const props = extractPropsFromJSX(
-						jsxArg.openingElement.attributes || [],
-						code,
-					);
-
-					let propsStr = "";
-					if (Object.keys(props).length > 0) {
-						const propsEntries = Object.entries(props).map(
-							([key, value]) => `${JSON.stringify(key)}: ${value}`,
+						const componentName = jsxArg.openingElement.name.name;
+						const props = extractPropsFromJSX(
+							jsxArg.openingElement.attributes || [],
+							code,
 						);
-						propsStr = `, { ${propsEntries.join(", ")} }`;
-					}
 
-					const localComponentCode = localComponents.get(componentName);
-					if (localComponentCode) {
-						const allLocalComponentNames = Array.from(localComponents.keys());
-						const localComponentsArray = JSON.stringify(allLocalComponentNames);
-						const replacement = `(async () => {
-							const { html } = await commands.renderSSRLocal("${id}", "${componentName}", ${localComponentsArray}${propsStr});
-							return renderServerHTML(html);
-						})()`;
-						s.overwrite(node.start, node.end, replacement);
-					} else {
-						const componentImportPath = componentImports.get(componentName);
-						if (componentImportPath) {
-							const componentPath = resolveComponentPath(
-								componentImportPath,
-								id,
+						let propsStr = "";
+						if (Object.keys(props).length > 0) {
+							const propsEntries = Object.entries(props).map(
+								([key, value]) => `${JSON.stringify(key)}: ${value}`,
+							);
+							propsStr = `, { ${propsEntries.join(", ")} }`;
+						}
+
+						const localComponentCode = localComponents.get(componentName);
+						if (localComponentCode) {
+							const allLocalComponentNames = Array.from(localComponents.keys());
+							const localComponentsArray = JSON.stringify(
+								allLocalComponentNames,
 							);
 							const replacement = `(async () => {
-								const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
+								const { html } = await commands.renderSSRLocal("${id}", "${componentName}", ${localComponentsArray}${propsStr});
 								return renderServerHTML(html);
 							})()`;
 							s.overwrite(node.start, node.end, replacement);
+						} else {
+							const componentImportPath = componentImports.get(componentName);
+							if (componentImportPath) {
+								const componentPath = resolveComponentPath(
+									componentImportPath,
+									id,
+								);
+								const replacement = `(async () => {
+									const { html } = await commands.renderSSR("${componentPath}", "${componentName}"${propsStr});
+									return renderServerHTML(html);
+								})()`;
+								s.overwrite(node.start, node.end, replacement);
+							}
 						}
 					}
+
+					traverseChildren(node, walkForTransformation);
+					return undefined;
 				}
 
-				traverseChildren(node, walkForTransformation);
-				return undefined;
-			}
+				walkForTransformation(ast.program);
 
-			walkForTransformation(ast.program);
+				if (s.hasChanged()) {
+					if (!hasExistingCommandsImport) {
+						let lastImportEnd = 0;
 
-			if (s.hasChanged()) {
-				if (!hasExistingCommandsImport) {
-					let lastImportEnd = 0;
-
-					function findLastImport(node: Node): undefined {
-						if (isImportDeclaration(node)) {
-							lastImportEnd = Math.max(lastImportEnd, node.end);
+						function findLastImport(node: Node): undefined {
+							if (isImportDeclaration(node)) {
+								lastImportEnd = Math.max(lastImportEnd, node.end);
+							}
+							traverseChildren(node, findLastImport);
+							return undefined;
 						}
-						traverseChildren(node, findLastImport);
-						return undefined;
+
+						findLastImport(ast.program);
+
+						if (lastImportEnd > 0) {
+							s.appendLeft(
+								lastImportEnd,
+								'\nimport { commands } from "vitest/browser";\nimport { renderServerHTML } from "vitest-browser-qwik";',
+							);
+						}
 					}
 
-					findLastImport(ast.program);
-
-					if (lastImportEnd > 0) {
-						s.appendLeft(
-							lastImportEnd,
-							'\nimport { commands } from "vitest/browser";\nimport { renderServerHTML } from "vitest-browser-qwik";',
-						);
+					if (localComponents.size > 0) {
+						const localComponentNames = Array.from(localComponents.keys());
+						const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${localComponentNames.join(", ")} };`;
+						s.append(exportStatement);
 					}
+
+					return {
+						code: s.toString(),
+						map: s.generateMap({ hires: true }),
+					};
 				}
 
-				if (localComponents.size > 0) {
-					const localComponentNames = Array.from(localComponents.keys());
-					const exportStatement = `\n\n// Auto-generated exports for local components\nexport { ${localComponentNames.join(", ")} };`;
-					s.append(exportStatement);
-				}
-
-				return {
-					code: s.toString(),
-					map: s.generateMap({ hires: true }),
-				};
-			}
-
-			return null;
+				return null;
+			},
 		},
 		configResolved(config) {
 			globalThis.qwikSymbolMapper = symbolMapper;
